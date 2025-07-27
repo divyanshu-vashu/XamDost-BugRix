@@ -26,6 +26,17 @@ window.addEventListener('DOMContentLoaded', () => {
     let isDragging = false;
     let offsetX, offsetY;
 
+    // Configure marked.js for better markdown parsing
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            sanitize: false,
+            smartLists: true,
+            smartypants: false
+        });
+    }
+
     // Load initial state from main process
     ipcRenderer.on('load-notes', (event, notes) => {
         console.log('Renderer: Received notes:', notes);
@@ -94,6 +105,11 @@ window.addEventListener('DOMContentLoaded', () => {
         else if (e.key === 'Escape' && settingsPanel.classList.contains('visible')) {
             settingsPanel.classList.remove('visible');
         }
+        // Enter to send message in chat
+        else if (e.key === 'Enter' && !e.shiftKey && isChatMode && e.target === chatInput) {
+            e.preventDefault();
+            sendMessageBtn.click();
+        }
     });
 
     // Make window draggable
@@ -155,10 +171,12 @@ window.addEventListener('DOMContentLoaded', () => {
             notesView.classList.remove('active');
             chatView.classList.add('active');
             modeToggleBtn.textContent = '📝';
+            chatInput.focus();
         } else {
             chatView.classList.remove('active');
             notesView.classList.add('active');
             modeToggleBtn.textContent = '💬';
+            noteTextarea.focus();
         }
     }
     
@@ -174,13 +192,26 @@ window.addEventListener('DOMContentLoaded', () => {
         console.log('Renderer: Sending message:', message);
         appendMessage(message, 'user-message');
         chatInput.value = '';
+        chatInput.style.height = 'auto'; // Reset height
+
+        // Show typing indicator
+        const typingIndicator = appendTypingIndicator();
 
         try {
             const response = await ipcRenderer.invoke('send-message-to-gemini', message);
             console.log('Renderer: Received response:', response);
-            appendMessage(response, 'ai-message');
+            
+            // Remove typing indicator
+            removeTypingIndicator(typingIndicator);
+            
+            // Append AI response with markdown rendering
+            appendMessage(response, 'ai-message', true);
         } catch (error) {
             console.error('Renderer: Error sending message:', error.message);
+            
+            // Remove typing indicator
+            removeTypingIndicator(typingIndicator);
+            
             appendMessage(`Error: ${error.message}`, 'error-message');
         }
     });
@@ -208,16 +239,124 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function appendMessage(text, type) {
+    // Function to render markdown content
+    function renderMarkdown(text) {
+        if (typeof marked === 'undefined') {
+            return text; // Fallback to plain text if marked.js is not available
+        }
+
+        try {
+            let html = marked.parse(text);
+            
+            // Add syntax highlighting if highlight.js is available
+            if (typeof hljs !== 'undefined') {
+                // Find code blocks and highlight them
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                
+                const codeBlocks = tempDiv.querySelectorAll('pre code');
+                codeBlocks.forEach(block => {
+                    // Try to detect language or use auto-detection
+                    const result = hljs.highlightAuto(block.textContent);
+                    block.innerHTML = result.value;
+                    block.classList.add('hljs');
+                });
+                
+                html = tempDiv.innerHTML;
+            }
+            
+            return html;
+        } catch (error) {
+            console.error('Error rendering markdown:', error);
+            return text; // Fallback to plain text
+        }
+    }
+
+    // Function to add copy buttons to code blocks
+    function addCopyButtons(messageElement) {
+        const codeBlocks = messageElement.querySelectorAll('pre');
+        codeBlocks.forEach((pre, index) => {
+            const container = document.createElement('div');
+            container.className = 'code-block-container';
+            
+            const copyButton = document.createElement('button');
+            copyButton.className = 'copy-button';
+            copyButton.textContent = 'Copy';
+            copyButton.onclick = () => {
+                const code = pre.querySelector('code') || pre;
+                navigator.clipboard.writeText(code.textContent).then(() => {
+                    copyButton.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyButton.textContent = 'Copy';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                });
+            };
+            
+            // Wrap the pre element
+            pre.parentNode.insertBefore(container, pre);
+            container.appendChild(pre);
+            container.appendChild(copyButton);
+        });
+    }
+
+    function appendMessage(text, type, isMarkdown = false) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', type);
         
         const contentDiv = document.createElement('div');
         contentDiv.classList.add('message-content');
-        contentDiv.textContent = text;
+        
+        if (isMarkdown && type === 'ai-message') {
+            // Render markdown for AI messages
+            contentDiv.innerHTML = renderMarkdown(text);
+            
+            // Add copy buttons to code blocks after rendering
+            addCopyButtons(contentDiv);
+
+        } else {
+            // Plain text for user messages and errors
+            contentDiv.textContent = text;
+        }
         
         messageDiv.appendChild(contentDiv);
         chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        return messageDiv;
+    }
+
+    function appendTypingIndicator() {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', 'ai-message', 'typing-indicator');
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.classList.add('message-content');
+        contentDiv.innerHTML = '<em>AI is typing...</em>';
+        
+        messageDiv.appendChild(contentDiv);
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return messageDiv;
+    }
+
+    function removeTypingIndicator(typingIndicator) {
+        if (typingIndicator && typingIndicator.parentNode) {
+            typingIndicator.parentNode.removeChild(typingIndicator);
+        }
+    }
+
+    // Auto-resize chat input
+    chatInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // Initialize highlight.js if available
+    if (typeof hljs !== 'undefined') {
+        hljs.configure({
+            ignoreUnescapedHTML: true
+        });
     }
 });
