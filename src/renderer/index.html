@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>XamDost</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <div class="title-bar">
+            <div class="title-bar-left">
+                <div class="app-title">XamDost</div>
+                <div class="window-actions">
+                    <button id="mode-toggle" class="action-btn" title="Toggle Mode (⌘T)">💬</button>
+                    <button id="settings-btn" class="action-btn" title="Settings (⌘,)">⚙️</button>
+                </div>
+            </div>
+        </div>
+    
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settings-panel">
+        <div class="setting-item">
+            <label for="opacity-slider">Opacity: <span id="opacity-value">90</span>%</label>
+            <input type="range" id="opacity-slider" min="10" max="100" value="90">
+        </div>
+        <div class="setting-item">
+            <button id="always-on-top-btn">Always on Top: <span id="always-on-top-status">On</span></button>
+        </div>
+        <div class="setting-divider"></div>
+        <div class="setting-item">
+            <label for="gemini-api-key">Gemini API Key:</label>
+            <div class="api-key-input">
+                <input type="password" id="gemini-api-key" placeholder="Enter your Gemini API key">
+                <button id="save-api-key">Save</button>
+            </div>
+            <div id="api-key-status" class="status-message"></div>
+        </div>
+    </div>
+
+    <!-- Notes View -->
+    <div id="notes-view" class="view active">
+        <textarea id="note" placeholder="Type your notes here..."></textarea>
+    </div>
+
+    <!-- Chat View -->
+    <div id="chat-view" class="view">
+        <div id="chat-messages" class="chat-messages">
+            <div class="message ai-message">
+                <div class="message-content">Hello! I'm your AI assistant. How can I help you today?</div>
+            </div>
+        </div>
+        <div class="chat-input-container">
+            <textarea id="chat-input" placeholder="Type a message..." rows="1"></textarea>
+            <button id="send-message">Send</button>
+        </div>
+    </div>
+    
+    <script src="renderer.js"></script>
+</body>
+</html>
