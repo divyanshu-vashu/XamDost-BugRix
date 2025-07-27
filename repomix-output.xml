@@ -1,0 +1,1076 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+src/
+  renderer/
+    index.html
+    renderer.js
+    styles.css
+  services/
+    gemini.js
+  main.js
+  preload.js
+.gitignore
+.repomixignore
+forge.config.js
+package.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/renderer/index.html">
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>XamDost</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <div class="title-bar">
+            <div class="app-title">XamDost</div>
+            <div class="window-actions">
+                <button id="mode-toggle" class="action-btn" title="Toggle Mode (⌘T)">💬</button>
+                <button id="settings-btn" class="action-btn" title="Settings (⌘,)">⚙️</button>
+            </div>
+        </div>
+    
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settings-panel">
+        <div class="setting-item">
+            <label for="opacity-slider">Opacity: <span id="opacity-value">90</span>%</label>
+            <input type="range" id="opacity-slider" min="10" max="100" value="90">
+        </div>
+        <div class="setting-item">
+            <button id="always-on-top-btn">Always on Top: <span id="always-on-top-status">On</span></button>
+        </div>
+        <div class="setting-divider"></div>
+        <div class="setting-item">
+            <label for="gemini-api-key">Gemini API Key:</label>
+            <div class="api-key-input">
+                <input type="password" id="gemini-api-key" placeholder="Enter your Gemini API key">
+                <button id="save-api-key">Save</button>
+            </div>
+            <div id="api-key-status" class="status-message"></div>
+        </div>
+    </div>
+
+    <!-- Notes View -->
+    <div id="notes-view" class="view active">
+        <textarea id="note" placeholder="Type your notes here..."></textarea>
+    </div>
+
+    <!-- Chat View -->
+    <div id="chat-view" class="view">
+        <div id="chat-messages" class="chat-messages">
+            <div class="message ai-message">
+                <div class="message-content">Hello! I'm your AI assistant. How can I help you today?</div>
+            </div>
+        </div>
+        <div class="chat-input-container">
+            <textarea id="chat-input" placeholder="Type a message..." rows="1"></textarea>
+            <button id="send-message">Send</button>
+        </div>
+    </div>
+    
+    <script src="renderer.js"></script>
+</body>
+</html>
+</file>
+
+<file path="src/renderer/renderer.js">
+const { ipcRenderer } = require('electron');
+
+// DOM elements
+const noteTextarea = document.getElementById('note');
+const settingsBtn = document.getElementById('settings-btn');
+const settingsPanel = document.getElementById('settings-panel');
+const opacitySlider = document.getElementById('opacity-slider');
+const opacityValue = document.getElementById('opacity-value');
+const alwaysOnTopBtn = document.getElementById('always-on-top-btn');
+const alwaysOnTopStatus = document.getElementById('always-on-top-status');
+const minimizeBtn = document.getElementById('minimize-btn');
+const closeBtn = document.getElementById('close-btn');
+const modeToggleBtn = document.getElementById('mode-toggle');
+const notesView = document.getElementById('notes-view');
+const chatView = document.getElementById('chat-view');
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const sendMessageBtn = document.getElementById('send-message');
+const geminiApiKeyInput = document.getElementById('gemini-api-key');
+const saveApiKeyBtn = document.getElementById('save-api-key');
+const apiKeyStatus = document.getElementById('api-key-status');
+
+let isChatMode = false;
+
+// Load saved notes when the window loads
+window.addEventListener('DOMContentLoaded', () => {
+    // Load settings
+    const opacity = Math.round(parseFloat(ipcRenderer.sendSync('get-opacity')) * 100) || 90;
+    opacitySlider.value = opacity;
+    opacityValue.textContent = opacity;
+    
+    const isAlwaysOnTop = ipcRenderer.sendSync('get-always-on-top');
+    alwaysOnTopStatus.textContent = isAlwaysOnTop ? 'On' : 'Off';
+    
+    // Set initial opacity
+    document.body.style.opacity = opacity / 100;
+});
+
+// Save notes as user types
+noteTextarea.addEventListener('input', (e) => {
+    ipcRenderer.send('save-notes', e.target.value);
+});
+
+// Toggle settings panel
+settingsBtn.addEventListener('click', () => {
+    settingsPanel.classList.toggle('visible');
+});
+
+// Handle opacity change
+opacitySlider.addEventListener('input', (e) => {
+    const opacity = e.target.value;
+    opacityValue.textContent = opacity;
+    document.body.style.opacity = opacity / 100;
+    ipcRenderer.send('update-opacity', opacity / 100);
+});
+
+// Toggle always on top
+let isAlwaysOnTop = true;
+alwaysOnTopBtn.addEventListener('click', () => {
+    isAlwaysOnTop = !isAlwaysOnTop;
+    alwaysOnTopStatus.textContent = isAlwaysOnTop ? 'On' : 'Off';
+    const result = ipcRenderer.sendSync('toggle-always-on-top');
+    console.log('Always on top:', result);
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // Cmd+T to toggle mode
+    if (e.key === 't' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        toggleView();
+    }
+    // Cmd+, to open settings
+    else if (e.key === ',' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        settingsPanel.classList.toggle('visible');
+    }
+});
+
+// Make window draggable
+let isDragging = false;
+let offsetX, offsetY;
+
+const titleBar = document.querySelector('.title-bar');
+
+titleBar.addEventListener('mousedown', (e) => {
+    if (e.target === titleBar || e.target.classList.contains('drag-handle')) {
+        isDragging = true;
+        offsetX = e.clientX;
+        offsetY = e.clientY;
+        document.addEventListener('mousemove', handleDrag);
+        document.addEventListener('mouseup', stopDrag);
+    }
+});
+
+function handleDrag(e) {
+    if (!isDragging) return;
+    const { screenX, screenY } = e;
+    ipcRenderer.send('window-move', {
+        x: screenX - offsetX,
+        y: screenY - offsetY
+    });
+}
+
+function stopDrag() {
+    isDragging = false;
+    document.removeEventListener('mousemove', handleDrag);
+    document.removeEventListener('mouseup', stopDrag);
+}
+
+// Prevent text selection while dragging
+document.addEventListener('selectstart', (e) => {
+    if (isDragging) {
+        e.preventDefault();
+        return false;
+    }
+});
+
+// Handle keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // Close settings panel with Escape
+    if (e.key === 'Escape' && settingsPanel.classList.contains('visible')) {
+        settingsPanel.classList.remove('visible');
+    }
+});
+
+// Handle window resize
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        const { width, height } = document.body.getBoundingClientRect();
+        ipcRenderer.send('window-resize', { width, height });
+    }, 100);
+});
+</file>
+
+<file path="src/renderer/styles.css">
+/* Basic reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 
+  FIX #1: THE CLICK-THROUGH PROBLEM
+  Make the body and html non-interactive by default. Clicks will pass through them.
+  This prevents the background from blocking clicks to the main app container.
+*/
+html, body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    background-color: transparent;
+    color: #333;
+    -webkit-user-select: none;
+    user-select: none;
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    position: relative;
+    pointer-events: none; /* Let clicks pass through */
+}
+
+/* 
+  FIX #2: RE-ENABLE CLICKS ON THE MAIN APP CONTAINER
+  Now, we make the main app container itself clickable again.
+*/
+#app {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    pointer-events: auto; /* Re-enable clicks for the app container and its children */
+}
+
+/* 
+  FIX #3: THE DRAGGABLE TITLE BAR PROBLEM
+  This is the most critical fix. The title-bar is draggable,
+  but everything inside it must be marked as non-draggable to be clickable.
+*/
+.title-bar {
+    -webkit-app-region: drag; /* This makes the whole bar draggable */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    height: 28px;
+    background-color: transparent;
+    position: relative;
+    z-index: 9999;
+}
+
+.app-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    -webkit-app-region: drag; /* This part can also be draggable */
+    margin-left: 78px;
+}
+
+/* This is the key part for the buttons */
+.window-actions {
+    -webkit-app-region: no-drag; /* MAKE THE BUTTON CONTAINER NON-DRAGGABLE */
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    -webkit-app-region: no-drag; /* MAKE EACH BUTTON EXPLICITLY NON-DRAGGABLE */
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.action-btn:active {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Settings panel */
+.settings-panel {
+    background-color: #f8f9fa;
+    padding: 12px;
+    border-bottom: 1px solid #e9ecef;
+    display: none;
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+.settings-panel.visible {
+    display: block;
+}
+
+.setting-item {
+    margin-bottom: 16px;
+}
+
+.setting-divider {
+    height: 1px;
+    background-color: #e9ecef;
+    margin: 12px 0;
+}
+
+.api-key-input {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.api-key-input input {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.api-key-input button {
+    padding: 0 12px;
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.api-key-input button:hover {
+    background-color: #3a7bc8;
+}
+
+.status-message {
+    font-size: 12px;
+    margin-top: 4px;
+    min-height: 16px;
+}
+
+.status-message.success {
+    color: #28a745;
+}
+
+.status-message.error {
+    color: #dc3545;
+}
+
+.setting-item:last-child {
+    margin-bottom: 0;
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+    color: #495057;
+}
+
+input[type="range"] {
+    width: 100%;
+    margin: 8px 0;
+}
+
+/* Views */
+.view {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+}
+
+.view.active {
+    display: flex;
+}
+
+/* Note textarea */
+#note {
+    flex: 1;
+    width: 100%;
+    border: none;
+    padding: 12px;
+    resize: none;
+    outline: none;
+    background: transparent;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #212529;
+    font-family: 'SF Mono', 'Roboto Mono', 'Courier New', monospace;
+}
+
+/* Chat Interface */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.message {
+    max-width: 80%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.user-message {
+    align-self: flex-end;
+    background-color: #4a90e2;
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.ai-message {
+    align-self: flex-start;
+    background-color: #f0f0f0;
+    color: #333;
+    border-bottom-left-radius: 4px;
+}
+
+.chat-input-container {
+    display: flex;
+    padding: 12px;
+    border-top: 1px solid #e9ecef;
+    gap: 8px;
+}
+
+#chat-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    resize: none;
+    max-height: 120px;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+#chat-input:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+#send-message {
+    padding: 0 16px;
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+#send-message:hover {
+    background-color: #3a7bc8;
+}
+
+#send-message:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* Always on top button */
+#always-on-top-btn {
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+#always-on-top-btn:hover {
+    background: #dee2e6;
+}
+
+input, textarea, button {
+    pointer-events: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .title-bar {
+        padding: 6px 8px;
+    }
+    
+    .drag-handle {
+        font-size: 12px;
+    }
+    
+    #note {
+        font-size: 16px;
+        padding: 10px;
+    }
+}
+</file>
+
+<file path="src/services/gemini.js">
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Store = require('electron-store');
+
+const store = new Store();
+
+class GeminiService {
+  constructor() {
+    this.conversationHistory = [];
+    this.initializeAI();
+  }
+
+  initializeAI() {
+    const apiKey = store.get('geminiApiKey');
+    if (apiKey) {
+      try {
+        this.genAI = new GoogleGenerativeAI(apiKey);
+        this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        this.isInitialized = true;
+      } catch (error) {
+        console.error('Error initializing Gemini:', error);
+        this.isInitialized = false;
+      }
+    } else {
+      this.isInitialized = false;
+    }
+  }
+
+  setApiKey(apiKey) {
+    store.set('geminiApiKey', apiKey);
+    this.initializeAI();
+    return this.isInitialized;
+  }
+
+  async sendMessage(message) {
+    if (!this.isInitialized) {
+      throw new Error('Gemini AI is not initialized. Please set a valid API key.');
+    }
+
+    try {
+      // Add user message to conversation history
+      this.conversationHistory.push({
+        role: 'user',
+        parts: [{ text: message }]
+      });
+
+      // Generate content using the conversation history
+      const chat = this.model.startChat({
+        history: this.conversationHistory,
+        generationConfig: {
+          maxOutputTokens: 1000,
+        },
+      });
+
+      const result = await chat.sendMessage(message);
+      const response = await result.response;
+      const text = response.text();
+
+      // Add AI response to conversation history
+      this.conversationHistory.push({
+        role: 'model',
+        parts: [{ text }]
+      });
+
+      return text;
+    } catch (error) {
+      console.error('Error sending message to Gemini:', error);
+      throw error;
+    }
+  }
+
+  clearConversation() {
+    this.conversationHistory = [];
+  }
+}
+
+module.exports = new GeminiService();
+</file>
+
+<file path="src/main.js">
+const { app, BrowserWindow, globalShortcut, ipcMain, dialog } = require('electron');
+const path = require('path');
+const Store = require('electron-store');
+const geminiService = require('./services/gemini');
+
+// Initialize @electron/remote
+require('@electron/remote/main').initialize();
+
+// Initialize store
+const store = new Store({
+  defaults: {
+    windowBounds: { width: 400, height: 300, x: 0, y: 0 },
+    notes: '',
+    isAlwaysOnTop: true,
+    opacity: 0.9
+  }
+});
+
+let mainWindow;
+
+function createWindow() {
+  const { width, height, x, y } = store.get('windowBounds');
+  
+  // Create the browser window.
+  mainWindow = new BrowserWindow({
+    width: width,
+    height: height,
+    x: x,
+    y: y,
+    frame: true,
+    titleBarStyle: 'hiddenInset', // For macOS traffic lights
+    backgroundColor: '#00000000', // Transparent background
+    transparent: true,
+    hasShadow: false,
+    alwaysOnTop: store.get('isAlwaysOnTop'),
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      backgroundThrottling: false,
+      webSecurity: false,          // From the first object
+      enableRemoteModule: true,    // From the second object
+      nodeIntegrationInWorker: true // From the second object
+    },
+    skipTaskbar: true
+  });
+
+  // Enable @electron/remote for this window
+  require('@electron/remote/main').enable(mainWindow.webContents);
+
+  // Load the index.html file
+  mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
+
+  // Enable content protection to hide from screen capture
+  mainWindow.setContentProtection(true);
+
+  // Open the DevTools in development mode
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  // Set up window event listeners
+  mainWindow
+    // Window state events
+    .on('maximize', () => mainWindow.webContents.send('window-maximized'))
+    .on('unmaximize', () => mainWindow.webContents.send('window-unmaximized'))
+    
+    // Save window bounds
+    .on('resize', saveWindowBounds)
+    .on('move', saveWindowBounds)
+    .on('moved', saveWindowBounds)
+    .on('resized', saveWindowBounds)
+    
+    // Window close behavior
+    .on('close', (e) => {
+      if (!isQuitting) {
+        e.preventDefault();
+        mainWindow.hide();
+        return false;
+      }
+      return true;
+    })
+    
+    // Content protection
+    .on('show', () => mainWindow.setContentProtection(true))
+    .on('focus', () => mainWindow.setContentProtection(true));
+
+  // Register global shortcut (Cmd+/ or Ctrl+/)
+  const ret = globalShortcut.register('CommandOrControl+/', () => {
+    if (mainWindow.isVisible()) {
+      mainWindow.hide();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  if (!ret) {
+    console.log('Global shortcut registration failed');
+  }
+
+  // Load saved notes
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.send('load-notes', store.get('notes'));
+    mainWindow.webContents.send('update-opacity', store.get('opacity'));
+  });
+}
+
+function saveWindowBounds() {
+  if (mainWindow) {
+    const bounds = mainWindow.getBounds();
+    store.set('windowBounds', bounds);
+  }
+}
+
+// This method will be called when Electron has finished initialization
+app.whenReady().then(() => {
+  createWindow();
+
+  app.on('activate', function () {
+    // On macOS it's common to re-create a window in the app when the
+    // dock icon is clicked and there are no other windows open.
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+// Quit when all windows are closed, except on macOS
+app.on('window-all-closed', function () {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+// Save notes when received from renderer
+ipcMain.on('save-notes', (event, notes) => {
+  store.set('notes', notes);
+});
+
+// Update window opacity
+ipcMain.on('update-opacity', (event, opacity) => {
+  if (mainWindow) {
+    mainWindow.setOpacity(opacity);
+    store.set('opacity', opacity);
+  }
+});
+
+// Toggle always on top
+ipcMain.on('toggle-always-on-top', (event) => {
+  if (mainWindow) {
+    const isAlwaysOnTop = !mainWindow.isAlwaysOnTop();
+    mainWindow.setAlwaysOnTop(isAlwaysOnTop);
+    store.set('isAlwaysOnTop', isAlwaysOnTop);
+    event.returnValue = isAlwaysOnTop;
+  }
+});
+
+// Get current opacity
+ipcMain.handle('get-opacity', () => {
+  return store.get('opacity', 0.9);
+});
+
+// Get always on top status
+ipcMain.handle('get-always-on-top', () => {
+  return store.get('isAlwaysOnTop', true);
+});
+
+// Window movement handling
+ipcMain.on('window-move', (event, { x, y }) => {
+  if (mainWindow && !mainWindow.isMaximized()) {
+    mainWindow.setPosition(x, y);
+  }
+});
+
+
+
+ipcMain.on('window-resize', (event, { width, height }) => {
+  if (mainWindow) {
+    const [currentWidth, currentHeight] = mainWindow.getSize();
+    if (Math.abs(currentWidth - width) > 10 || Math.abs(currentHeight - height) > 10) {
+      mainWindow.setSize(Math.round(width), Math.round(height));
+    }
+  }
+});
+
+// Gemini AI related IPC handlers
+ipcMain.handle('set-gemini-api-key', (event, apiKey) => {
+  try {
+    return geminiService.setApiKey(apiKey);
+  } catch (error) {
+    console.error('Error setting Gemini API key:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('send-message-to-gemini', async (event, message) => {
+  try {
+    return await geminiService.sendMessage(message);
+  } catch (error) {
+    console.error('Error sending message to Gemini:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('clear-gemini-conversation', () => {
+  geminiService.clearConversation();
+  return true;
+});
+
+ipcMain.handle('get-gemini-status', () => {
+  return geminiService.isInitialized;
+});
+
+// Clean up on quit
+app.on('will-quit', () => {
+  // Unregister all shortcuts
+  globalShortcut.unregisterAll();
+});
+</file>
+
+<file path="src/preload.js">
+// See the Electron documentation for details on how to use preload scripts:
+// https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
+</file>
+
+<file path=".gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+.DS_Store
+
+# Directory for instrumented libs generated by jscoverage/JSCover
+lib-cov
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# TypeScript v1 declaration files
+typings/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.test
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# Webpack
+.webpack/
+
+# Vite
+.vite/
+
+# Electron-Forge
+out/
+</file>
+
+<file path=".repomixignore">
+Doc
+Doc/
+</file>
+
+<file path="forge.config.js">
+const { FusesPlugin } = require('@electron-forge/plugin-fuses');
+const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+
+module.exports = {
+  packagerConfig: {
+    asar: true,
+  },
+  rebuildConfig: {},
+  makers: [
+    {
+      name: '@electron-forge/maker-squirrel',
+      config: {},
+    },
+    {
+      name: '@electron-forge/maker-zip',
+      platforms: ['darwin'],
+    },
+    {
+      name: '@electron-forge/maker-deb',
+      config: {},
+    },
+    {
+      name: '@electron-forge/maker-rpm',
+      config: {},
+    },
+  ],
+  plugins: [
+    {
+      name: '@electron-forge/plugin-auto-unpack-natives',
+      config: {},
+    },
+    // Fuses are used to enable/disable various Electron functionality
+    // at package time, before code signing the application
+    new FusesPlugin({
+      version: FuseVersion.V1,
+      [FuseV1Options.RunAsNode]: false,
+      [FuseV1Options.EnableCookieEncryption]: true,
+      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+      [FuseV1Options.EnableNodeCliInspectArguments]: false,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+    }),
+  ],
+};
+</file>
+
+<file path="package.json">
+{
+  "name": "stealth-note",
+  "productName": "XamDost",
+  "version": "1.0.0",
+  "description": "A private note-taking overlay that stays hidden during screen sharing",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "echo \"No linting configured\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "notes",
+    "privacy",
+    "productivity",
+    "overlay"
+  ],
+  "author": {
+    "name": "divyanshu-vashu",
+    "email": "vashusingh2004.jan@gmail.com"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@electron/remote": "^2.1.3",
+    "@google/generative-ai": "^0.24.1",
+    "electron-squirrel-startup": "^1.0.1",
+    "electron-store": "^8.1.0"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.8.1",
+    "@electron-forge/maker-deb": "^7.8.1",
+    "@electron-forge/maker-rpm": "^7.8.1",
+    "@electron-forge/maker-squirrel": "^7.8.1",
+    "@electron-forge/maker-zip": "^7.8.1",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.8.1",
+    "@electron-forge/plugin-fuses": "^7.8.1",
+    "@electron/fuses": "^1.8.0",
+    "electron": "37.2.4"
+  }
+}
+</file>
+
+</files>
