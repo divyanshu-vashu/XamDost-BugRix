@@ -45,220 +45,641 @@ The content is organized as follows:
 
 <directory_structure>
 src/
+  media/
+    chrome.svg
   renderer/
     index.html
     renderer.js
     styles.css
   services/
     gemini.js
+    meets_dump.txt
+    meets.js
+    prompt.js
   main.js
   preload.js
 .gitignore
 .repomixignore
+assembly.js
 forge.config.js
+LICENSE
 package.json
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
 
-<file path="src/renderer/index.html">
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>XamDost</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div id="app">
-        <div class="title-bar">
-            <div class="app-title">XamDost</div>
-            <div class="window-actions">
-                <button id="mode-toggle" class="action-btn" title="Toggle Mode (⌘T)">💬</button>
-                <button id="settings-btn" class="action-btn" title="Settings (⌘,)">⚙️</button>
-            </div>
-        </div>
-    
-    <!-- Settings Panel -->
-    <div class="settings-panel" id="settings-panel">
-        <div class="setting-item">
-            <label for="opacity-slider">Opacity: <span id="opacity-value">90</span>%</label>
-            <input type="range" id="opacity-slider" min="10" max="100" value="90">
-        </div>
-        <div class="setting-item">
-            <button id="always-on-top-btn">Always on Top: <span id="always-on-top-status">On</span></button>
-        </div>
-        <div class="setting-divider"></div>
-        <div class="setting-item">
-            <label for="gemini-api-key">Gemini API Key:</label>
-            <div class="api-key-input">
-                <input type="password" id="gemini-api-key" placeholder="Enter your Gemini API key">
-                <button id="save-api-key">Save</button>
-            </div>
-            <div id="api-key-status" class="status-message"></div>
-        </div>
-    </div>
+<file path="src/services/meets_dump.txt">
+// src/services/meets.js
 
-    <!-- Notes View -->
-    <div id="notes-view" class="view active">
-        <textarea id="note" placeholder="Type your notes here..."></textarea>
-    </div>
+// const { AssemblyAI } = require('assemblyai');
+// const { EventEmitter } = require('events');
+// const { Readable } = require('stream');
+// const recorder = require('node-record-lpcm16');
 
-    <!-- Chat View -->
-    <div id="chat-view" class="view">
-        <div id="chat-messages" class="chat-messages">
-            <div class="message ai-message">
-                <div class="message-content">Hello! I'm your AI assistant. How can I help you today?</div>
-            </div>
-        </div>
-        <div class="chat-input-container">
-            <textarea id="chat-input" placeholder="Type a message..." rows="1"></textarea>
-            <button id="send-message">Send</button>
-        </div>
-    </div>
-    
-    <script src="renderer.js"></script>
-</body>
-</html>
+// class MeetService extends EventEmitter {
+//     constructor() {
+//         super();
+//         this.assembly = null;
+//         this.transcriber = null;
+//         this.recordingProcess = null;
+//         this.isListening = false;
+//         this.sessionId = null;
+        
+//         // Bind methods to maintain 'this' context
+//         this.handleTranscriberOpen = this.handleTranscriberOpen.bind(this);
+//         this.handleTranscriberError = this.handleTranscriberError.bind(this);
+//         this.handleTranscriberClose = this.handleTranscriberClose.bind(this);
+//         this.handleTranscript = this.handleTranscript.bind(this);
+//     }
+
+//     init(apiKey) {
+//         if (!apiKey) {
+//             const errorMsg = 'AssemblyAI API key is not set.';
+//             console.error(errorMsg);
+//             this.emit('error', errorMsg);
+//             return false;
+//         }
+//         try {
+//             this.assembly = new AssemblyAI({ apiKey });
+//             console.log('MeetService initialized with AssemblyAI key.');
+//             return true;
+//         } catch (error) {
+//             console.error('Failed to initialize AssemblyAI:', error);
+//             this.emit('error', `Failed to initialize AssemblyAI: ${error.message}`);
+//             return false;
+//         }
+//     }
+
+//     // Helper method to handle transcriber events
+//     setupTranscriberHandlers() {
+//         this.transcriber.on('open', this.handleTranscriberOpen);
+//         this.transcriber.on('error', this.handleTranscriberError);
+//         this.transcriber.on('close', this.handleTranscriberClose);
+//         this.transcriber.on('transcript', this.handleTranscript);
+//         this.transcriber.on('session_information', (info) => {
+//             console.log('Session information:', info);
+//         });
+//         this.transcriber.on('transcript.final', this.handleTranscript);
+//     }
+
+//     // Handle transcriber open event
+//     handleTranscriberOpen({ sessionId }) {
+//         this.sessionId = sessionId;
+//         console.log(`[${new Date().toISOString()}] Session opened with ID:`, sessionId);
+//         this.emit('status', 'listening');
+//         this.emit('session-started', { sessionId });
+//     }
+
+//     // Handle transcriber errors
+//     handleTranscriberError(error) {
+//         console.error(`[${new Date().toISOString()}] Transcriber Error:`, error);
+//         this.emit('error', error.message || 'Unknown transcriber error');
+//         this.stop().catch(console.error);
+//     }
+
+//     // Handle transcriber close event
+//     handleTranscriberClose(code, reason) {
+//         console.log(`[${new Date().toISOString()}] Session closed - Code: ${code}, Reason: ${reason}`);
+//         this.emit('status', 'idle');
+//         this.emit('session-ended', { code, reason });
+//     }
+
+//     // Handle transcript data
+//     handleTranscript(transcript) {
+//         console.log(`[${new Date().toISOString()}] Transcript:`, JSON.stringify(transcript, null, 2));
+//         if (transcript.text) {
+//             this.emit('transcript', { 
+//                 message_type: 'FinalTranscript', 
+//                 text: transcript.text,
+//                 sessionId: this.sessionId,
+//                 timestamp: new Date().toISOString()
+//             });
+//         }
+//     }
+
+//     async start() {
+//         if (this.isListening) {
+//             console.log('[MeetService] Already listening.');
+//             return;
+//         }
+
+//         if (!this.assembly) {
+//             const errorMsg = 'AssemblyAI is not initialized. Call init(apiKey) first.';
+//             console.error('[MeetService]', errorMsg);
+//             this.emit('error', errorMsg);
+//             return;
+//         }
+
+//         this.isListening = true;
+//         this.sessionId = null;
+//         this.emit('status', 'connecting');
+//         console.log('[MeetService] Starting transcription service...');
+
+//         try {
+//             // Initialize the streaming transcriber
+//             this.transcriber = this.assembly.streaming.transcriber({
+//                 sampleRate: 16000,
+//                 wordBoost: ['AssemblyAI', 'Node.js', 'JavaScript'], // Optional: boost specific words
+//                 encoding: 'pcm_s16le',
+//                 channels: 1,
+//                 end_utterance_silence_threshold: 500, // ms of silence to detect end of utterance
+//                 disable_partial_results: false, // Get partial results
+//                 punctuate: true,
+//                 format_text: true
+//             });
+
+//             console.log('[MeetService] Transcriber initialized, setting up event handlers...');
+//             this.setupTranscriberHandlers();
+
+//             // Connect to the service
+//             console.log('[MeetService] Connecting to AssemblyAI...');
+//             await this.transcriber.connect();
+//             console.log('[MeetService] Connected to AssemblyAI, starting audio capture...');
+
+//             // Start recording using node-record-lpcm16
+//             const recordOptions = {
+//                 sampleRate: 16000,
+//                 channels: 1,
+//                 threshold: 0.5, // Silence threshold (0 to 1)
+//                 recordProgram: 'sox', // Try 'rec' or 'arecord' if 'sox' doesn't work
+//                 verbose: true,
+//                 silence: '5.0', // Seconds of silence before ending
+//                 device: null // Use default device
+//             };
+
+//             console.log('[MeetService] Starting audio recording with options:', JSON.stringify(recordOptions, null, 2));
+            
+//             this.recordingProcess = recorder.record(recordOptions);
+            
+//             // Log recording process events
+//             this.recordingProcess.stream().on('error', (error) => {
+//                 console.error('[MeetService] Recording error:', error);
+//                 this.emit('error', `Recording error: ${error.message}`);
+//                 this.stop().catch(console.error);
+//             });
+
+//             // Pipe the audio stream to the transcriber
+//             const audioStream = Readable.toWeb(this.recordingProcess.stream());
+//             await audioStream.pipeTo(this.transcriber.stream());
+            
+//             console.log('[MeetService] Audio stream successfully piped to transcriber');
+
+//         } catch (error) {
+//             console.error('Error starting transcription:', error);
+//             this.emit('error', `Error starting transcription: ${error.message}`);
+//             this.stop();
+//         }
+//     }
+
+//     async stop() {
+//         if (!this.isListening && !this.transcriber) {
+//             console.log('[MeetService] Not currently listening, nothing to stop');
+//             return;
+//         }
+
+//         console.log('[MeetService] Stopping transcription service...');
+//         this.isListening = false;
+
+//         try {
+//             // Stop the recording process first
+//             if (this.recordingProcess) {
+//                 console.log('[MeetService] Stopping audio recording...');
+//                 return new Promise((resolve) => {
+//                     this.recordingProcess.stop();
+//                     this.recordingProcess = null;
+//                     console.log('[MeetService] Audio recording stopped');
+//                     resolve();
+//                 });
+//             }
+//         } catch (error) {
+//             console.error('[MeetService] Error stopping recording:', error);
+//         }
+
+//         try {
+//             // Then close the transcriber connection
+//             if (this.transcriber) {
+//                 console.log('[MeetService] Closing transcriber connection...');
+//                 await this.transcriber.close();
+//                 this.transcriber = null;
+//                 console.log('[MeetService] Transcriber connection closed');
+//             }
+//         } catch (error) {
+//             console.error('[MeetService] Error closing transcriber:', error);
+//         } finally {
+//             this.emit('status', 'idle');
+//             console.log('[MeetService] Transcription service fully stopped');
+//         }
+//     }
+// }
+
+// module.exports = MeetService;
 </file>
 
-<file path="src/renderer/renderer.js">
-const { ipcRenderer } = require('electron');
+<file path="src/services/meets.js">
+// src/services/meets.js
 
-// DOM elements
-const noteTextarea = document.getElementById('note');
-const settingsBtn = document.getElementById('settings-btn');
-const settingsPanel = document.getElementById('settings-panel');
-const opacitySlider = document.getElementById('opacity-slider');
-const opacityValue = document.getElementById('opacity-value');
-const alwaysOnTopBtn = document.getElementById('always-on-top-btn');
-const alwaysOnTopStatus = document.getElementById('always-on-top-status');
-const minimizeBtn = document.getElementById('minimize-btn');
-const closeBtn = document.getElementById('close-btn');
-const modeToggleBtn = document.getElementById('mode-toggle');
-const notesView = document.getElementById('notes-view');
-const chatView = document.getElementById('chat-view');
-const chatMessages = document.getElementById('chat-messages');
-const chatInput = document.getElementById('chat-input');
-const sendMessageBtn = document.getElementById('send-message');
-const geminiApiKeyInput = document.getElementById('gemini-api-key');
-const saveApiKeyBtn = document.getElementById('save-api-key');
-const apiKeyStatus = document.getElementById('api-key-status');
+const { AssemblyAI } = require('assemblyai');
+const recorder = require('node-record-lpcm16');
+const { Readable } = require('stream');
+const { v4: uuidv4 } = require('uuid');
+const Store = require('electron-store');
+const EventEmitter = require('events');
+const geminiService = require('./gemini');
 
-let isChatMode = false;
+const store = new Store();
 
-// Load saved notes when the window loads
-window.addEventListener('DOMContentLoaded', () => {
-    // Load settings
-    const opacity = Math.round(parseFloat(ipcRenderer.sendSync('get-opacity')) * 100) || 90;
-    opacitySlider.value = opacity;
-    opacityValue.textContent = opacity;
-    
-    const isAlwaysOnTop = ipcRenderer.sendSync('get-always-on-top');
-    alwaysOnTopStatus.textContent = isAlwaysOnTop ? 'On' : 'Off';
-    
-    // Set initial opacity
-    document.body.style.opacity = opacity / 100;
-});
-
-// Save notes as user types
-noteTextarea.addEventListener('input', (e) => {
-    ipcRenderer.send('save-notes', e.target.value);
-});
-
-// Toggle settings panel
-settingsBtn.addEventListener('click', () => {
-    settingsPanel.classList.toggle('visible');
-});
-
-// Handle opacity change
-opacitySlider.addEventListener('input', (e) => {
-    const opacity = e.target.value;
-    opacityValue.textContent = opacity;
-    document.body.style.opacity = opacity / 100;
-    ipcRenderer.send('update-opacity', opacity / 100);
-});
-
-// Toggle always on top
-let isAlwaysOnTop = true;
-alwaysOnTopBtn.addEventListener('click', () => {
-    isAlwaysOnTop = !isAlwaysOnTop;
-    alwaysOnTopStatus.textContent = isAlwaysOnTop ? 'On' : 'Off';
-    const result = ipcRenderer.sendSync('toggle-always-on-top');
-    console.log('Always on top:', result);
-});
-
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-    // Cmd+T to toggle mode
-    if (e.key === 't' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        toggleView();
+class MeetService extends EventEmitter {
+    constructor() {
+        super();
+        this.assembly = null;
+        this.transcriber = null;
+        this.recordingProcess = null;
+        this.isListening = false;
+        this.sessionId = null;
     }
-    // Cmd+, to open settings
-    else if (e.key === ',' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        settingsPanel.classList.toggle('visible');
+
+    init(apiKey) {
+        if (!apiKey) {
+            this.emit('error', 'AssemblyAI API key is not set.');
+            return false;
+        }
+        try {
+            this.assembly = new AssemblyAI({ apiKey });
+            console.log('MeetService initialized with AssemblyAI key.');
+            return true;
+        } catch (error) {
+            this.emit('error', `Failed to initialize AssemblyAI: ${error.message}`);
+            return false;
+        }
     }
-});
 
-// Make window draggable
-let isDragging = false;
-let offsetX, offsetY;
+    async start() {
+        if (this.isListening) {
+            console.log('Already listening.');
+            return;
+        }
+        if (!this.assembly) {
+            this.emit('error', 'AssemblyAI is not initialized.');
+            return;
+        }
 
-const titleBar = document.querySelector('.title-bar');
+        this.isListening = true;
+        this.emit('status', 'connecting');
+        console.log('Starting transcription using the example configuration...');
 
-titleBar.addEventListener('mousedown', (e) => {
-    if (e.target === titleBar || e.target.classList.contains('drag-handle')) {
-        isDragging = true;
-        offsetX = e.clientX;
-        offsetY = e.clientY;
-        document.addEventListener('mousemove', handleDrag);
-        document.addEventListener('mouseup', stopDrag);
+        try {
+            this.transcriber = this.assembly.streaming.transcriber({
+                sampleRate: 16_000,
+            });
+
+            // --- Event Handlers ---
+            this.transcriber.on('open', ({ sessionId }) => {
+                this.sessionId = sessionId || uuidv4();
+                console.log(`Session opened with ID: ${this.sessionId}`);
+                this.emit('status', 'listening');
+            });
+
+            this.transcriber.on('error', (error) => {
+                console.error('Transcriber Error:', error);
+                this.emit('error', error.message);
+                this.stop();
+            });
+
+            this.transcriber.on('close', (code, reason) => {
+                console.log('Session closed:', code, reason);
+                this.emit('status', 'idle');
+            });
+
+            // This handles the transcript and sends it to your app's Gemini flow
+            this.transcriber.on('transcript.final', async (turn) => {
+                if (turn.text && turn.text.trim()) {
+                    const transcriptText = turn.text.trim();
+                    console.log(`[${new Date().toISOString()}] [Session ${this.sessionId}] Transcript:`, transcriptText);
+                    
+                    try {
+                        // Get Gemini response for the transcript
+                        const response = await geminiService.sendMessage(transcriptText, { isMeet: true });
+                        
+                        // Emit the transcript event to the main process
+                        this.emit('transcript', {
+                            message_type: 'FinalTranscript',
+                            text: transcriptText,
+                            response: response,
+                            sessionId: this.sessionId,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        // Also emit a status update
+                        this.emit('status', 'transcript_processed');
+                    } catch (error) {
+                        console.error(`[${new Date().toISOString()}] Error processing transcript with Gemini:`, error);
+                        this.emit('error', {
+                            message: 'Failed to process transcript with Gemini',
+                            error: error.message,
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                }
+            });
+
+            // --- Connect and Record ---
+            console.log(`[${new Date().toISOString()}] Connecting to AssemblyAI...`);
+            await this.transcriber.connect();
+            console.log(`[${new Date().toISOString()}] Connected to AssemblyAI. Starting local recording...`);
+
+            // Configure audio recording
+            const recordConfig = {
+                channels: 1,
+                sampleRate: 16000,
+                audioType: 'wav',
+                verbose: true,
+                threshold: 0.5, // Silence threshold
+                silence: '1.0'  // Seconds of silence before ending
+            };
+            
+            console.log(`[${new Date().toISOString()}] Starting audio recording with config:`, recordConfig);
+            
+            try {
+                this.recordingProcess = recorder.record(recordConfig);
+                console.log(`[${new Date().toISOString()}] Audio recording started successfully`);
+            } catch (error) {
+                console.error(`[${new Date().toISOString()}] Failed to start recording:`, error);
+                throw new Error(`Failed to start recording: ${error.message}`);
+            }
+            
+            if (!this.recordingProcess) {
+                throw new Error("Failed to start recording. No recording process was created.");
+            }
+
+            // Handle recording stream errors
+            const audioStream = this.recordingProcess.stream();
+            audioStream.on('error', (err) => {
+                console.error(`[${new Date().toISOString()}] Recording stream error:`, err);
+                this.emit('error', `Recording stream error: ${err.message}`);
+                this.stop().catch(console.error);
+            });
+
+            // Pipe audio to AssemblyAI
+            console.log(`[${new Date().toISOString()}] Piping audio stream to AssemblyAI...`);
+            try {
+                const webStream = Readable.toWeb(audioStream);
+                await webStream.pipeTo(this.transcriber.stream());
+                console.log(`[${new Date().toISOString()}] Audio stream piping completed`);
+            } catch (error) {
+                console.error(`[${new Date().toISOString()}] Error piping audio stream:`, error);
+                this.emit('error', `Stream piping error: ${error.message}`);
+                await this.stop();
+            }
+
+        } catch (error) {
+            console.error('Error in start method:', error);
+            this.emit('error', `Start Error: ${error.message}`);
+            this.stop();
+        }
     }
-});
 
-function handleDrag(e) {
-    if (!isDragging) return;
-    const { screenX, screenY } = e;
-    ipcRenderer.send('window-move', {
-        x: screenX - offsetX,
-        y: screenY - offsetY
+    async stop() {
+        if (!this.isListening && !this.recordingProcess && !this.transcriber) {
+            console.log(`[${new Date().toISOString()}] No active transcription to stop`);
+            return;
+        }
+        
+        console.log(`[${new Date().toISOString()}] Stopping transcription...`);
+        this.isListening = false;
+
+        try {
+            // Stop the recording process first
+            if (this.recordingProcess) {
+                console.log(`[${new Date().toISOString()}] Stopping audio recording...`);
+                await new Promise((resolve) => {
+                    this.recordingProcess.stop();
+                    this.recordingProcess = null;
+                    console.log(`[${new Date().toISOString()}] Audio recording stopped`);
+                    resolve();
+                });
+            }
+        } catch (error) {
+            console.error(`[${new Date().toISOString()}] Error stopping recording:`, error);
+        }
+
+        try {
+            // Then close the transcriber connection
+            if (this.transcriber) {
+                console.log(`[${new Date().toISOString()}] Closing transcriber connection...`);
+                await this.transcriber.close();
+                this.transcriber = null;
+                console.log(`[${new Date().toISOString()}] Transcriber connection closed`);
+            }
+        } catch (error) {
+            console.error(`[${new Date().toISOString()}] Error closing transcriber:`, error);
+        }
+
+        this.emit('status', 'idle');
+        console.log(`[${new Date().toISOString()}] Transcription service fully stopped`);
+        
+        // Emit session end event
+        this.emit('session_ended', { 
+            sessionId: this.sessionId,
+            timestamp: new Date().toISOString() 
+        });
+    }
+}
+
+module.exports = MeetService;
+</file>
+
+<file path="src/services/prompt.js">
+export const meetPrompt = `
+
+<core_identity>
+You are an assistant called Xamdost, developed and created by Xamdost, whose sole purpose is to analyze and solve problems asked by the user on the screen. Your responses must be specific, accurate, and actionable.
+</core_identity>
+
+<general_guidelines>
+- NEVER use meta-phrases (e.g., "let me help you", "I can see that").
+- NEVER summarize unless explicitly requested.
+- NEVER provide unsolicited advice.
+- ALWAYS be specific, detailed, and accurate.
+- ALWAYS acknowledge uncertainty when present.
+- ALWAYS use markdown formatting.
+- **All math must be rendered using LaTeX**: use $...$ for in-line and $$...$$ for multi-line math. Dollar signs used for money must be escaped (e.g., \\$100).
+- If asked what model is running or powering you or who you are, respond: "I am Xamdost powered by a collection of LLM providers". NEVER mention the specific LLM providers or say that Xamdost is the AI itself.
+- If user intent is unclear — even with many visible elements — do NOT offer solutions or organizational suggestions. Only acknowledge ambiguity and offer a clearly labeled guess if appropriate.
+</general_guidelines>
+
+<technical_problems>
+- START IMMEDIATELY WITH THE SOLUTION CODE – ZERO INTRODUCTORY TEXT.
+- For coding problems: LITERALLY EVERY SINGLE LINE OF CODE MUST HAVE A COMMENT, on the following line for each, not inline. NO LINE WITHOUT A COMMENT.
+- For general technical concepts: START with direct answer immediately.
+- After the solution, provide a detailed markdown section (ex. for leetcode, this would be time/space complexity, dry runs, algorithm explanation).
+</technical_problems>
+
+<math_problems>
+- Start immediately with your confident answer if you know it.
+- Show step-by-step reasoning with formulas and concepts used.
+- **All math must be rendered using LaTeX**: use $...$ for in-line and $$...$$ for multi-line math. Dollar signs used for money must be escaped (e.g., \\$100).
+- End with **FINAL ANSWER** in bold.
+- Include a **DOUBLE-CHECK** section for verification.
+</math_problems>
+
+<multiple_choice_questions>
+- Start with the answer.
+- Then explain:
+- Why it's correct
+- Why the other options are incorrect
+</multiple_choice_questions>
+
+<emails_messages>
+- Provide mainly the response if there is an email/message/ANYTHING else to respond to / text to generate, in a code block.
+- Do NOT ask for clarification – draft a reasonable response.
+- Format: \`\`\`
+[Your email response here]
+</emails_messages>
+
+<ui_navigation>
+- Provide EXTREMELY detailed step-by-step instructions with granular specificity.
+- For each step, specify:
+- Exact button/menu names (use quotes)
+- Precise location ("top-right corner", "left sidebar", "bottom panel")
+- Visual identifiers (icons, colors, relative position)
+- What happens after each click
+- Do NOT mention screenshots or offer further help.
+- Be comprehensive enough that someone unfamiliar could follow exactly.
+</ui_navigation>
+
+<unclear_or_empty_screen>
+- MUST START WITH EXACTLY: "I'm not sure what information you're looking for." (one sentence only)
+- Draw a horizontal line: ---
+- Provide a brief suggestion, explicitly stating "My guess is that you might want..."
+- Keep the guess focused and specific.
+- If intent is unclear — even with many elements — do NOT offer advice or solutions.
+- It's CRITICAL you enter this mode when you are not 90%+ confident what the correct action is.
+</unclear_or_empty_screen>
+
+<other_content>
+- If there is NO explicit user question or dialogue, and the screen shows any interface, treat it as **unclear intent**.
+- Do NOT provide unsolicited instructions or advice.
+- If intent is unclear:
+- Start with EXACTLY: "I'm not sure what information you're looking for."
+- Draw a horizontal line: ---
+- Follow with: "My guess is that you might want [specific guess]."
+- If content is clear (you are 90%+ confident it is clear):
+- Start with the direct answer immediately.
+- Provide detailed explanation using markdown formatting.
+- Keep response focused and relevant to the specific question.
+</other_content>
+
+<response_quality_requirements>
+- Be thorough and comprehensive in technical explanations.
+- Ensure all instructions are unambiguous and actionable.
+- Provide sufficient detail that responses are immediately useful.
+- Maintain consistent formatting throughout.
+- **You MUST NEVER just summarize what's on the screen** unless you are explicitly asked to
+</response_quality_requirements>
+
+
+
+
+`
+</file>
+
+<file path="assembly.js">
+const { Readable } = require('stream')
+const {AssemblyAI} = require('assemblyai')
+const recorder = require('node-record-lpcm16')
+
+const run = async () => {
+  const client = new AssemblyAI({
+    apiKey: "f29f663674af45f19854458fc51cca2c",
+  });
+
+  const transcriber = client.streaming.transcriber({
+    sampleRate: 16_000,
+    formatTurns: true
+  });
+
+  transcriber.on("open", ({ id }) => {
+    console.log(`Session opened with ID: ${id}`);
+  });
+
+  transcriber.on("error", (error) => {
+    console.error("Error:", error);
+  });
+
+  transcriber.on("close", (code, reason) =>
+    console.log("Session closed:", code, reason),
+  );
+
+  transcriber.on("turn", (turn) => {
+    if (!turn.transcript) {
+      return;
+    }
+
+    console.log("Turn:", turn.transcript);
+  });
+
+  try {
+    console.log("Connecting to streaming transcript service");
+
+    await transcriber.connect();
+
+    console.log("Starting recording");
+
+    const recording = recorder.record({
+      channels: 1,
+      sampleRate: 16_000,
+      audioType: "wav", // Linear PCM
     });
-}
 
-function stopDrag() {
-    isDragging = false;
-    document.removeEventListener('mousemove', handleDrag);
-    document.removeEventListener('mouseup', stopDrag);
-}
+    Readable.toWeb(recording.stream()).pipeTo(transcriber.stream());
 
-// Prevent text selection while dragging
-document.addEventListener('selectstart', (e) => {
-    if (isDragging) {
-        e.preventDefault();
-        return false;
-    }
-});
+    // Stop recording and close connection using Ctrl-C.
 
-// Handle keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-    // Close settings panel with Escape
-    if (e.key === 'Escape' && settingsPanel.classList.contains('visible')) {
-        settingsPanel.classList.remove('visible');
-    }
-});
+    process.on("SIGINT", async function () {
+      console.log();
+      console.log("Stopping recording");
+      recording.stop();
 
-// Handle window resize
-let resizeTimeout;
-window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-        const { width, height } = document.body.getBoundingClientRect();
-        ipcRenderer.send('window-resize', { width, height });
-    }, 100);
-});
+      console.log("Closing streaming transcript connection");
+      await transcriber.close();
+
+      process.exit();
+    });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+run();
+</file>
+
+<file path="LICENSE">
+MIT License
+
+Copyright (c) 2025 Divyanshu Singh
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</file>
+
+<file path="src/media/chrome.svg">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 48 48" height="48" width="48"><defs><linearGradient id="a" x1="3.2173" y1="15" x2="44.7812" y2="15" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#d93025"/><stop offset="1" stop-color="#ea4335"/></linearGradient><linearGradient id="b" x1="20.7219" y1="47.6791" x2="41.5039" y2="11.6837" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fcc934"/><stop offset="1" stop-color="#fbbc04"/></linearGradient><linearGradient id="c" x1="26.5981" y1="46.5015" x2="5.8161" y2="10.506" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1e8e3e"/><stop offset="1" stop-color="#34a853"/></linearGradient></defs><circle cx="24" cy="23.9947" r="12" style="fill:#fff"/><path d="M3.2154,36A24,24,0,1,0,12,3.2154,24,24,0,0,0,3.2154,36ZM34.3923,18A12,12,0,1,1,18,13.6077,12,12,0,0,1,34.3923,18Z" style="fill:none"/><path d="M24,12H44.7812a23.9939,23.9939,0,0,0-41.5639.0029L13.6079,30l.0093-.0024A11.9852,11.9852,0,0,1,24,12Z" style="fill:url(#a)"/><circle cx="24" cy="24" r="9.5" style="fill:#1a73e8"/><path d="M34.3913,30.0029,24.0007,48A23.994,23.994,0,0,0,44.78,12.0031H23.9989l-.0025.0093A11.985,11.985,0,0,1,34.3913,30.0029Z" style="fill:url(#b)"/><path d="M13.6086,30.0031,3.218,12.006A23.994,23.994,0,0,0,24.0025,48L34.3931,30.0029l-.0067-.0068a11.9852,11.9852,0,0,1-20.7778.007Z" style="fill:url(#c)"/></svg>
 </file>
 
 <file path="src/renderer/styles.css">
@@ -286,7 +707,7 @@ html, body {
     margin: 0;
     padding: 0;
     position: relative;
-    pointer-events: none; /* Let clicks pass through */
+    pointer-events: auto; /* Let clicks pass through */
 }
 
 /* 
@@ -314,30 +735,38 @@ html, body {
   but everything inside it must be marked as non-draggable to be clickable.
 */
 .title-bar {
-    -webkit-app-region: drag; /* This makes the whole bar draggable */
+    -webkit-app-region: drag;
+    height: 40px;
+    background-color: #2c3e50;
+    color: white;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 0 16px;
-    height: 28px;
-    background-color: transparent;
-    position: relative;
-    z-index: 9999;
+    padding: 0 15px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}
+
+.title-bar-left {
+    display: flex;
+    align-items: center;
+    /* This container is draggable, but buttons inside will be non-draggable */
 }
 
 .app-title {
     font-size: 13px;
     font-weight: 500;
     color: #333;
-    -webkit-app-region: drag; /* This part can also be draggable */
-    margin-left: 78px;
+    -webkit-app-region: drag; /* Allow dragging by the title text itself */
 }
 
-/* This is the key part for the buttons */
 .window-actions {
     -webkit-app-region: no-drag; /* MAKE THE BUTTON CONTAINER NON-DRAGGABLE */
     display: flex;
-    gap: 8px;
+    gap: 4px;
+    margin-left: 12px; /* Space between title and buttons */
 }
 
 .action-btn {
@@ -350,6 +779,7 @@ html, body {
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
+    margin: 0 5px;
 }
 
 .action-btn:hover {
@@ -441,15 +871,14 @@ input[type="range"] {
     margin: 8px 0;
 }
 
-/* Views */
-.view {
-    display: none;
-    flex-direction: column;
-    height: 100%;
-}
+
 
 .view.active {
     display: flex;
+}
+
+.hidden {
+    display: none !important;
 }
 
 /* Note textarea */
@@ -469,12 +898,14 @@ input[type="range"] {
 
 /* Chat Interface */
 .chat-messages {
+    height: calc(100% - 120px);
     flex: 1;
     overflow-y: auto;
     padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    margin-bottom: 10px;
 }
 
 .message {
@@ -504,6 +935,11 @@ input[type="range"] {
     padding: 12px;
     border-top: 1px solid #e9ecef;
     gap: 8px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #f5f5f5;
 }
 
 #chat-input {
@@ -515,6 +951,10 @@ input[type="range"] {
     max-height: 120px;
     font-family: inherit;
     font-size: 14px;
+}
+
+#chat-view .meet-controls {
+    display: none;
 }
 
 #chat-input:focus {
@@ -577,81 +1017,350 @@ input, textarea, button {
         padding: 10px;
     }
 }
+
+/* Content area */
+.content {
+    margin-top: 40px; /* Match the height of the title bar */
+    height: calc(100% - 40px); /* Adjust height to account for title bar */
+    overflow: hidden;
+    display: flex;
+}
+
+/* Meet View Styles */
+#meets-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.meet-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+}
+
+.meet-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.meet-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 120px;
+}
+
+.meet-toggle:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.meet-toggle:not(:disabled):hover {
+    background-color: #3a7bc8;
+}
+
+.meet-toggle.stop-button {
+    background-color: #dc3545;
+}
+
+.meet-toggle.stop-button:not(:disabled):hover {
+    background-color: #bb2d3b;
+}
+
+.mic-icon, .stop-icon {
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-indicator {
+    margin-left: 16px;
+    font-size: 13px;
+    color: #6c757d;
+}
+
+#meets-chat-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.chat-input-container {
+    display: flex;
+    padding: 12px 16px;
+    border-top: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+}
+
+#meets-chat-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    max-height: 120px;
+}
+
+#meets-chat-input:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.send-button {
+    margin-left: 8px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 6px;
+    background-color: #4a90e2;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.send-button:hover {
+    background-color: #3a7bc8;
+}
+
+.send-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.meet-display {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-grow: 1;
+    height: calc(100% - 50px); /* Adjust based on controls height */
+}
+
+.transcript-container,
+.response-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.content-box {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 10px;
+    flex-grow: 1;
+    overflow-y: auto;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333;
+}
+
+.content-box p {
+    margin: 0 0 10px 0;
+}
+
+/* Add this to your styles.css */
+.view {
+    display: none;
+    width: 100%;
+    height: calc(100% - 40px); /* Account for title bar */
+    position: absolute;
+    top: 40px; /* Space for title bar */
+    left: 0;
+    padding: 15px;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.view.active {
+    display: block;
+}
+
+/* Make sure only one view is visible at a time */
+#settings-view.active ~ #chat-view:not(.active) ~ #meets-view:not(.active),
+#chat-view.active ~ #settings-view:not(.active) ~ #meets-view:not(.active),
+#meets-view.active ~ #settings-view:not(.active) ~ #chat-view:not(.active) {
+    display: none;
+}
+
+
+/* Hide all views by default */
+#settings-view,
+#chat-view,
+#meets-view {
+    display: none;
+}
+
+/* Show only the active view */
+#settings-view.active,
+#chat-view.active,
+#meets-view.active {
+    display: block;
+}
+
+/* Make sure the chat input is clickable */
+#chat-input,
+#meets-chat-input {
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+}
+
+/* Hide the meet controls in chat view */
+#chat-view .meet-controls {
+    display: none !important;
+}
 </file>
 
 <file path="src/services/gemini.js">
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Store = require('electron-store');
-
 const store = new Store();
+const { meetPrompt } = require('./prompt');
 
 class GeminiService {
   constructor() {
-    this.conversationHistory = [];
+    this.chat = null;
+    this.meetChat = null;
+    this.genAI = null;
+    this.model = null;
     this.initializeAI();
   }
 
   initializeAI() {
     const apiKey = store.get('geminiApiKey');
-    if (apiKey) {
-      try {
-        this.genAI = new GoogleGenerativeAI(apiKey);
-        this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-        this.isInitialized = true;
-      } catch (error) {
-        console.error('Error initializing Gemini:', error);
-        this.isInitialized = false;
-      }
-    } else {
+    if (!apiKey) {
+      this.isInitialized = false;
+      return;
+    }
+
+    try {
+      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      this.initializeChat();
+      this.initializeMeetChat();
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Error initializing Gemini:', error);
       this.isInitialized = false;
     }
   }
 
-  setApiKey(apiKey) {
-    store.set('geminiApiKey', apiKey);
-    this.initializeAI();
-    return this.isInitialized;
-  }
-
-  async sendMessage(message) {
-    if (!this.isInitialized) {
-      throw new Error('Gemini AI is not initialized. Please set a valid API key.');
-    }
-
+  initializeChat() {
     try {
-      // Add user message to conversation history
-      this.conversationHistory.push({
-        role: 'user',
-        parts: [{ text: message }]
-      });
-
-      // Generate content using the conversation history
-      const chat = this.model.startChat({
-        history: this.conversationHistory,
+      this.chat = this.model.startChat({
+        history: [],
         generationConfig: {
           maxOutputTokens: 1000,
         },
       });
-
-      const result = await chat.sendMessage(message);
-      const response = await result.response;
-      const text = response.text();
-
-      // Add AI response to conversation history
-      this.conversationHistory.push({
-        role: 'model',
-        parts: [{ text }]
-      });
-
-      return text;
     } catch (error) {
-      console.error('Error sending message to Gemini:', error);
+      console.error('Error initializing chat:', error);
       throw error;
     }
   }
 
-  clearConversation() {
-    this.conversationHistory = [];
+  initializeMeetChat() {
+    try {
+      // First start with an empty chat
+      this.meetChat = this.model.startChat({
+        history: [],
+        generationConfig: {
+          maxOutputTokens: 1000,
+        },
+      });
+      
+      // Then send the system prompt as the first message
+      // This ensures the first message is from the user role
+      return this.meetChat.sendMessage(meetPrompt)
+        .then(() => {
+          console.log('Meet chat initialized with system prompt');
+        })
+        .catch(error => {
+          console.error('Error setting up meet chat prompt:', error);
+          throw error;
+        });
+    } catch (error) {
+      console.error('Error initializing meet chat:', error);
+      throw error;
+    }
+  }
+  
+
+  async setApiKey(apiKey) {
+    store.set('geminiApiKey', apiKey);
+    try {
+      await this.initializeAI();
+      // Wait for meet chat to be fully initialized
+      await this.initializeMeetChat();
+      this.isInitialized = true;
+      return true;
+    } catch (error) {
+      console.error('Error initializing Gemini with API key:', error);
+      this.isInitialized = false;
+      throw error;
+    }
+  }
+
+  async sendMessage(message, options = {}) {
+    if (!this.isInitialized) {
+      throw new Error('Gemini AI is not initialized. Please set a valid API key.');
+    }
+
+    const { isMeet = false } = options;
+    const chatInstance = isMeet ? this.meetChat : this.chat;
+
+    if (!chatInstance) {
+      throw new Error(isMeet ? 'Meet chat is not initialized' : 'Chat is not initialized');
+    }
+
+    try {
+      const result = await chatInstance.sendMessage(message);
+      const response = await result.response;
+      const text = response.text();
+      return text;
+    } catch (error) {
+      console.error(`Error sending message to Gemini ${isMeet ? 'meet' : 'chat'}:`, error);
+      throw error;
+    }
+  }
+
+  clearConversation(options = {}) {
+    if (!this.isInitialized) return;
+
+    const { isMeet = false } = options;
+    
+    try {
+      if (isMeet) {
+        this.initializeMeetChat();
+      } else {
+        this.initializeChat();
+      }
+    } catch (error) {
+      console.error(`Error clearing ${isMeet ? 'meet' : 'chat'} conversation:`, error);
+      throw error;
+    }
   }
 }
 
@@ -659,10 +1368,11 @@ module.exports = new GeminiService();
 </file>
 
 <file path="src/main.js">
-const { app, BrowserWindow, globalShortcut, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, dialog, systemPreferences } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const geminiService = require('./services/gemini');
+const MeetService = require('./services/meets');
 
 // Initialize @electron/remote
 require('@electron/remote/main').initialize();
@@ -678,6 +1388,7 @@ const store = new Store({
 });
 
 let mainWindow;
+const meetService = new MeetService();
 
 function createWindow() {
   const { width, height, x, y } = store.get('windowBounds');
@@ -712,12 +1423,11 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
 
   // Enable content protection to hide from screen capture
-  mainWindow.setContentProtection(true);
+  mainWindow.setContentProtection(true); // Temporarily disabled for debugging
+  console.log('Content protection DISABLED for debugging.'); 
 
-  // Open the DevTools in development mode
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
+  // Open the DevTools
+  // mainWindow.webContents.openDevTools({ mode: 'detach' });
 
   // Set up window event listeners
   mainWindow
@@ -743,10 +1453,15 @@ function createWindow() {
     
     // Content protection
     .on('show', () => mainWindow.setContentProtection(true))
-    .on('focus', () => mainWindow.setContentProtection(true));
+    .on('focus', () => {
+      console.log('Main: Window focused');
+      // mainWindow.setContentProtection(true); // Temporarily disabled
+      mainWindow.webContents.send('window-focused');
+    });
 
   // Register global shortcut (Cmd+/ or Ctrl+/)
   const ret = globalShortcut.register('CommandOrControl+/', () => {
+    console.log('Global shortcut triggered');
     if (mainWindow.isVisible()) {
       mainWindow.hide();
     } else {
@@ -759,10 +1474,19 @@ function createWindow() {
     console.log('Global shortcut registration failed');
   }
 
-  // Load saved notes
+  // Attempt to initialize MeetService on startup with a stored key
+  const assemblyAiApiKey = store.get('assemblyAiApiKey');
+  if (assemblyAiApiKey) {
+    console.log('Main: Initializing MeetService with stored API key.');
+    meetService.init(assemblyAiApiKey);
+  }
+
+  // Push initial state to renderer once it's loaded
   mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Main: Renderer finished loading. Pushing initial state.');
     mainWindow.webContents.send('load-notes', store.get('notes'));
     mainWindow.webContents.send('update-opacity', store.get('opacity'));
+    mainWindow.webContents.send('update-always-on-top-status', store.get('isAlwaysOnTop'));
   });
 }
 
@@ -774,7 +1498,53 @@ function saveWindowBounds() {
 }
 
 // This method will be called when Electron has finished initialization
-app.whenReady().then(() => {
+// Forward MeetService events to the renderer process with enhanced logging
+meetService.on('status', (status) => {
+  console.log(`[${new Date().toISOString()}] MeetService status:`, status);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('meet-status-update', status);
+  }
+});
+
+meetService.on('transcript', (transcript) => {
+  console.log(`[${new Date().toISOString()}] MeetService transcript:`, 
+    `${transcript.text.substring(0, 50)}${transcript.text.length > 50 ? '...' : ''}`);
+  
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('meet-transcript-update', {
+      ...transcript,
+      timestamp: transcript.timestamp || new Date().toISOString()
+    });
+  }
+});
+
+meetService.on('session_ended', (sessionData) => {
+  console.log(`[${new Date().toISOString()}] MeetService session ended:`, sessionData.sessionId);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('meet-session-ended', sessionData);
+  }
+});
+
+meetService.on('error', (error) => {
+  const errorMessage = error.message || String(error);
+  console.error(`[${new Date().toISOString()}] MeetService error:`, errorMessage);
+  
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('meet-error', {
+      message: errorMessage,
+      timestamp: new Date().toISOString(),
+      stack: error.stack
+    });
+  }
+});
+
+app.whenReady().then(async () => {
+  if (process.platform === 'darwin') { // macOS specific
+    const microphoneAccess = await systemPreferences.askForMediaAccess('microphone');
+    if (!microphoneAccess) {
+      dialog.showErrorBox('Microphone Access Denied', 'You must allow microphone access in System Preferences to use the voice features.');
+    }
+  }
   createWindow();
 
   app.on('activate', function () {
@@ -803,13 +1573,12 @@ ipcMain.on('update-opacity', (event, opacity) => {
 });
 
 // Toggle always on top
-ipcMain.on('toggle-always-on-top', (event) => {
-  if (mainWindow) {
-    const isAlwaysOnTop = !mainWindow.isAlwaysOnTop();
-    mainWindow.setAlwaysOnTop(isAlwaysOnTop);
-    store.set('isAlwaysOnTop', isAlwaysOnTop);
-    event.returnValue = isAlwaysOnTop;
-  }
+ipcMain.on('toggle-always-on-top', async (event) => {
+  const isAlwaysOnTop = !store.get('isAlwaysOnTop');
+  store.set('isAlwaysOnTop', isAlwaysOnTop);
+  mainWindow.setAlwaysOnTop(isAlwaysOnTop, 'floating');
+  console.log('Main: Toggled always on top to:', isAlwaysOnTop);
+  mainWindow.webContents.send('update-always-on-top-status', isAlwaysOnTop);
 });
 
 // Get current opacity
@@ -841,8 +1610,10 @@ ipcMain.on('window-resize', (event, { width, height }) => {
 });
 
 // Gemini AI related IPC handlers
-ipcMain.handle('set-gemini-api-key', (event, apiKey) => {
+ipcMain.handle('set-api-key', (event, apiKey) => {
   try {
+    store.set('geminiApiKey', apiKey); // Persist the key
+    console.log('Main: Gemini API key saved.');
     return geminiService.setApiKey(apiKey);
   } catch (error) {
     console.error('Error setting Gemini API key:', error);
@@ -850,12 +1621,67 @@ ipcMain.handle('set-gemini-api-key', (event, apiKey) => {
   }
 });
 
+ipcMain.handle('get-gemini-api-key', () => {
+  return store.get('geminiApiKey');
+});
+
 ipcMain.handle('send-message-to-gemini', async (event, message) => {
   try {
     return await geminiService.sendMessage(message);
   } catch (error) {
-    console.error('Error sending message to Gemini:', error);
-    throw error;
+    console.error('Error sending message to Gemini:', error.message);
+    throw new Error(error.message || 'An unknown error occurred.');
+  }
+});
+
+
+// Handle Gemini prompts from both chat and meets views
+ipcMain.on('gemini-prompt', async (event, { view, prompt, sessionId }) => {
+  const isMeet = view === 'meets';
+  console.log(`[${new Date().toISOString()}] Gemini prompt received for ${view} view (${isMeet ? 'meet' : 'chat'})`);
+  
+  try {
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      throw new Error('Empty or invalid prompt');
+    }
+    
+    console.log(`[${new Date().toISOString()}] Sending to Gemini ${isMeet ? 'meet' : 'chat'}: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}"`);
+    
+    const startTime = Date.now();
+    const response = await geminiService.sendMessage(prompt, { isMeet });
+    const responseTime = Date.now() - startTime;
+    
+    console.log(`[${new Date().toISOString()}] Gemini ${isMeet ? 'meet' : 'chat'} response received in ${responseTime}ms`);
+    
+    event.sender.send('gemini-response', { 
+      view, 
+      response,
+      sessionId,
+      timestamp: new Date().toISOString(),
+      responseTime
+    });
+    
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error processing Gemini ${isMeet ? 'meet' : 'chat'} prompt:`, error);
+    
+    event.sender.send('gemini-response', { 
+      view, 
+      response: `Error: ${error.message || 'Failed to process your request'}`, 
+      sessionId,
+      timestamp: new Date().toISOString(),
+      error: true
+    });
+  }
+});
+ipcMain.handle('set-gemini-api-key', async (event, apiKey) => {
+  try {
+      console.log('Setting Gemini API key...');
+      await geminiService.setApiKey(apiKey);
+      console.log('Gemini API key set successfully');
+      return true;
+  } catch (error) {
+      console.error('Error setting Gemini API key:', error);
+      return false;
   }
 });
 
@@ -868,6 +1694,55 @@ ipcMain.handle('get-gemini-status', () => {
   return geminiService.isInitialized;
 });
 
+// AssemblyAI related IPC handlers
+ipcMain.handle('set-assemblyai-api-key', (event, apiKey) => {
+  try {
+    store.set('assemblyAiApiKey', apiKey);
+    console.log('Main: AssemblyAI API key saved.');
+    return meetService.init(apiKey); // Initialize service with the new key
+  } catch (error) {
+    console.error('Error setting AssemblyAI API key:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('get-assemblyai-api-key', () => {
+  return store.get('assemblyAiApiKey');
+});
+
+// Meet service controls
+ipcMain.on('start-meet', async () => {
+  try {
+    console.log(`[${new Date().toISOString()}] Starting meet service...`);
+    await meetService.start();
+    console.log(`[${new Date().toISOString()}] Meet service started successfully`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error starting meet service:`, error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('meet-error', {
+        message: `Failed to start meet: ${error.message}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+});
+
+ipcMain.on('stop-meet', async () => {
+  try {
+    console.log(`[${new Date().toISOString()}] Stopping meet service...`);
+    await meetService.stop();
+    console.log(`[${new Date().toISOString()}] Meet service stopped successfully`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error stopping meet service:`, error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('meet-error', {
+        message: `Error stopping meet: ${error.message}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+});
+
 // Clean up on quit
 app.on('will-quit', () => {
   // Unregister all shortcuts
@@ -878,6 +1753,15 @@ app.on('will-quit', () => {
 <file path="src/preload.js">
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
+
+// In preload.js
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electron', {
+    send: (channel, data) => ipcRenderer.send(channel, data),
+    on: (channel, func) => ipcRenderer.on(channel, (event, ...args) => func(...args)),
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
+});
 </file>
 
 <file path=".gitignore">
@@ -982,11 +1866,13 @@ Doc/
 
 <file path="forge.config.js">
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
+const path = require('path');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
 module.exports = {
   packagerConfig: {
     asar: true,
+    icon: path.join(__dirname, 'src/media/chrome'), // Forge will automatically use .icns for macOS and .ico for Windows
   },
   rebuildConfig: {},
   makers: [
@@ -1055,9 +1941,14 @@ module.exports = {
   "license": "MIT",
   "dependencies": {
     "@electron/remote": "^2.1.3",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@google/generative-ai": "^0.24.1",
+    "@types/uuid": "^10.0.0",
+    "assemblyai": "^4.14.0",
     "electron-squirrel-startup": "^1.0.1",
-    "electron-store": "^8.1.0"
+    "electron-store": "^8.1.0",
+    "node-record-lpcm16": "^1.0.1",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.8.1",
@@ -1071,6 +1962,543 @@ module.exports = {
     "electron": "37.2.4"
   }
 }
+</file>
+
+<file path="src/renderer/index.html">
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>XamDost</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="title-bar">
+            <div class="title-bar-left">
+                <div class="app-title">XamDost</div>
+                <div class="window-actions">
+                    <button id="meets-btn" class="action-btn" title="Meets (⌘1)">🎙️</button>
+                    <button id="chat-btn" class="action-btn" title="Chat (⌘2)">💬</button>
+                    <button id="settings-btn" class="action-btn" title="Settings (⌘,)" class="active">⚙️</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Settings View (Default) -->
+            <div id="settings-view" class="view">
+                <h2>Settings</h2>
+                <div class="setting-item">
+                    <label for="opacity-slider">Opacity: <span id="opacity-value">90</span>%</label>
+                    <input type="range" id="opacity-slider" min="10" max="100" value="90">
+                </div>
+                <div class="setting-item">
+                    <button id="always-on-top-btn">Always on Top: On</button>
+                </div>
+                <div class="setting-divider"></div>
+                <div class="api-key-container">
+                    <label for="gemini-api-key-input">Gemini API Key:</label>
+                    <input type="password" id="gemini-api-key-input" placeholder="Enter your Gemini API key">
+                    <button id="save-gemini-api-key-btn">Save</button>
+                    <div id="gemini-api-key-status" class="status-message"></div>
+                </div>
+                <div class="api-key-container">
+                    <label for="assemblyai-api-key-input">AssemblyAI API Key:</label>
+                    <input type="password" id="assemblyai-api-key-input" placeholder="Enter your AssemblyAI API key">
+                    <button id="save-assemblyai-api-key-btn">Save</button>
+                    <div id="assemblyai-api-key-status" class="status-message"></div>
+                </div>
+            </div>
+
+            <!-- Chat View -->
+            <div id="chat-view" class="view">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="message ai-message">
+                        <div class="message-content">Hello! I'm your AI assistant. How can I help you today?</div>
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <textarea id="chat-input" placeholder="Type a message..." rows="1"></textarea>
+                    <button id="send-message">Send</button>
+                </div>
+            </div>
+
+            <!-- Meets View -->
+            <div id="meets-view" class="view">
+                <div class="meet-header">
+                    <div class="meet-controls">
+                        <button id="meet-start-button" class="meet-toggle">
+                            <span class="mic-icon">🎙️</span>
+                            <span class="button-text">Start Listening</span>
+                        </button>
+                        <button id="meet-stop-button" class="meet-toggle stop-button" disabled>
+                            <span class="stop-icon">⏹️</span>
+                            <span class="button-text">Stop</span>
+                        </button>
+                    </div>
+                    <div id="meet-status" class="status-indicator">Status: Idle</div>
+                </div>
+                <div id="meets-chat-container" class="chat-messages"></div>
+                <div class="chat-input-container">
+                    <textarea id="meets-chat-input" placeholder="Type a message..." rows="1"></textarea>
+                    <button id="meets-send-message" class="send-button">
+                        <span class="send-icon">↑</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="renderer.js"></script>
+    <script src="preload.js"></script>
+</body>
+</html>
+</file>
+
+<file path="src/renderer/renderer.js">
+const { ipcRenderer } = require('electron');
+
+window.addEventListener('DOMContentLoaded', () => {
+    // --- DOM Elements ---
+    const titleBar = document.querySelector('.title-bar');
+
+    // View Buttons
+    const settingsBtn = document.getElementById('settings-btn');
+    const chatBtn = document.getElementById('chat-btn');
+    const meetsBtn = document.getElementById('meets-btn');
+
+    // Views
+    const settingsView = document.getElementById('settings-view');
+    const chatView = document.getElementById('chat-view');
+    const meetsView = document.getElementById('meets-view');
+
+    // Settings Elements
+    const opacitySlider = document.getElementById('opacity-slider');
+    const opacityValue = document.getElementById('opacity-value');
+    const alwaysOnTopBtn = document.getElementById('always-on-top-btn');
+    const geminiApiKeyInput = document.getElementById('gemini-api-key-input');
+    const saveGeminiApiKeyBtn = document.getElementById('save-gemini-api-key-btn');
+    const geminiApiKeyStatus = document.getElementById('gemini-api-key-status');
+    const assemblyAiApiKeyInput = document.getElementById('assemblyai-api-key-input');
+    const saveAssemblyAiApiKeyBtn = document.getElementById('save-assemblyai-api-key-btn');
+    const assemblyAiApiKeyStatus = document.getElementById('assemblyai-api-key-status');
+
+    // Chat Elements
+    const chatInput = document.getElementById('chat-input');
+    const sendMessageBtn = document.getElementById('send-message');
+    const chatMessages = document.getElementById('chat-messages');
+
+    // Meet Elements
+    const meetStartButton = document.getElementById('meet-start-button');
+    const meetStopButton = document.getElementById('meet-stop-button');
+    const meetStatus = document.getElementById('meet-status');
+    const meetsChatContainer = document.getElementById('meets-chat-container');
+    const meetsChatInput = document.getElementById('meets-chat-input');
+    const meetsSendMessageBtn = document.getElementById('meets-send-message');
+
+    // --- State ---
+    let isDragging = false;
+    let offsetX, offsetY;
+    let isListening = false;
+    let finalTranscript = '';
+
+    // --- Initial Setup ---
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({ breaks: true, gfm: true });
+    }
+    initializeApp();
+
+    function initializeApp() {
+        switchView('settings'); // Default view is now Settings
+        checkGeminiStatus();
+        ipcRenderer.invoke('get-opacity').then(opacity => {
+            opacitySlider.value = opacity * 100;
+            opacityValue.textContent = opacity * 100;
+            document.body.style.opacity = opacity;
+        });
+        ipcRenderer.invoke('get-always-on-top').then(isAlwaysOnTop => {
+            alwaysOnTopBtn.textContent = isAlwaysOnTop ? 'Disable Always on Top' : 'Enable Always on Top';
+        });
+        ipcRenderer.invoke('get-assemblyai-api-key').then(apiKey => {
+            if (apiKey) assemblyAiApiKeyInput.value = apiKey;
+        });
+        ipcRenderer.invoke('get-gemini-api-key').then(apiKey => {
+            if (apiKey) geminiApiKeyInput.value = apiKey;
+        });
+        document.querySelectorAll('input, textarea, button').forEach(el => {
+            el.style.webkitAppRegion = 'no-drag';
+        });
+    }
+
+    // --- Event Listeners ---
+
+    // Meet Controls
+    meetStartButton.addEventListener('click', () => {
+        ipcRenderer.send('start-meet');
+        meetStartButton.disabled = true;
+        meetStopButton.disabled = false;
+        meetStatus.textContent = 'Status: Listening...';
+    });
+
+    meetStopButton.addEventListener('click', () => {
+        ipcRenderer.send('stop-meet');
+        meetStartButton.disabled = false;
+        meetStopButton.disabled = true;
+        meetStatus.textContent = 'Status: Idle';
+    });
+
+    // View Switching
+    settingsBtn.addEventListener('click', () => switchView('settings'));
+    chatBtn.addEventListener('click', () => switchView('chat'));
+    meetsBtn.addEventListener('click', () => switchView('meets'));
+
+    // Settings
+    opacitySlider.addEventListener('input', (e) => {
+        const opacity = e.target.value / 100;
+        opacityValue.textContent = e.target.value;
+        document.body.style.opacity = opacity;
+        ipcRenderer.send('update-opacity', opacity);
+    });
+    alwaysOnTopBtn.addEventListener('click', () => ipcRenderer.send('toggle-always-on-top'));
+
+    // API Keys
+    saveGeminiApiKeyBtn.addEventListener('click', async () => {
+        const success = await ipcRenderer.invoke('set-gemini-api-key', geminiApiKeyInput.value.trim());
+        updateApiKeyStatus(geminiApiKeyStatus, success, 'Gemini');
+    });
+    saveAssemblyAiApiKeyBtn.addEventListener('click', async () => {
+        const success = await ipcRenderer.invoke('set-assemblyai-api-key', assemblyAiApiKeyInput.value.trim());
+        updateApiKeyStatus(assemblyAiApiKeyStatus, success, 'AssemblyAI');
+    });
+
+    // Chat
+    if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+    }
+
+    if (sendMessageBtn) {
+        sendMessageBtn.addEventListener('click', sendChatMessage);
+    }
+
+    // Meets Chat
+    if (meetsChatInput) {
+        meetsChatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMeetsChatMessage();
+            }
+        });
+    }
+
+    if (meetsSendMessageBtn) {
+        meetsSendMessageBtn.addEventListener('click', sendMeetsChatMessage);
+    }
+
+    // Meet
+    meetToggleButton.addEventListener('click', () => {
+        if (isListening) {
+            ipcRenderer.send('stop-meet');
+        } else {
+            ipcRenderer.send('start-meet');
+            meetsChatContainer.innerHTML = '';
+            finalTranscript = '';
+        }
+    });
+
+    // Window Dragging
+    titleBar.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.action-btn')) return;
+        isDragging = true;
+        offsetX = e.clientX;
+        offsetY = e.clientY;
+        document.addEventListener('mousemove', handleDrag);
+        document.addEventListener('mouseup', stopDrag);
+    });
+
+    // --- IPC Handlers ---
+    ipcRenderer.on('update-always-on-top-status', (event, isAlwaysOnTop) => {
+        alwaysOnTopBtn.textContent = isAlwaysOnTop ? 'Disable Always on Top' : 'Enable Always on Top';
+    });
+
+    ipcRenderer.on('meet-status', (event, status) => {
+        meetStatus.textContent = `Status: ${status}`;
+        if (status === 'listening') {
+            meetStartButton.disabled = true;
+            meetStopButton.disabled = false;
+        } else if (status === 'stopped' || status === 'error') {
+            meetStartButton.disabled = false;
+            meetStopButton.disabled = true;
+        }
+    });
+
+    ipcRenderer.on('meet-status-update', (event, status) => {
+        meetStatus.textContent = `Status: ${status}`;
+        isListening = (status === 'listening');
+        meetToggleButton.textContent = isListening ? 'Stop Listening' : 'Start Listening';
+        meetToggleButton.classList.toggle('listening', isListening);
+    });
+
+    // Handle transcript updates from the meet service
+    ipcRenderer.on('meet-transcript-update', (event, transcript) => {
+        try {
+            console.log('Received transcript update:', transcript);
+            
+            if (transcript.message_type === 'FinalTranscript' && transcript.text && transcript.text.trim()) {
+                const transcriptText = transcript.text.trim();
+                console.log(`Processing transcript: "${transcriptText}"`);
+                
+                // Add user's transcribed message to the chat
+                addMessage(transcriptText, 'user', meetsChatContainer);
+                
+                // If there's a response from the meet service, add it to the chat
+                if (transcript.response) {
+                    console.log('Adding meet service response to chat');
+                    addMessage(transcript.response, 'ai', meetsChatContainer, true);
+                }
+                
+                // Update the UI to show the transcript was processed
+                meetStatus.textContent = 'Idle';
+            }
+        } catch (error) {
+            console.error('Error processing transcript:', error);
+            meetStatus.textContent = `Error: ${error.message}`;
+            
+            // Show error in chat as well
+            addMessage(`Error processing transcript: ${error.message}`, 'error', meetsChatContainer);
+        }
+    });
+    
+    // Handle Gemini responses for both chat and meet views
+    ipcRenderer.on('gemini-response', (event, { view, response, error, sessionId }) => {
+        try {
+            console.log(`[RENDERER] Received Gemini response payload:`, { view, response, error, sessionId });
+
+            const container = view === 'chat' ? chatMessages : meetsChatContainer;
+            if (!container) {
+                console.error(`[RENDERER] Container not found for view: ${view}`);
+                return;
+            }
+
+            if (error) {
+                console.error('[RENDERER] Gemini API Error:', error);
+                addMessage(`Error: ${response || 'Failed to get response from Gemini'}`, 'error', container);
+                return;
+            }
+
+            if (!response) {
+                console.warn('[RENDERER] Empty response from Gemini');
+                addMessage('Received an empty response from Gemini.', 'ai', container);
+                return;
+            }
+
+            console.log(`[RENDERER] Adding AI response to ${container.id}:`, response);
+            addMessage(response, 'ai', container, true);
+
+        } catch (e) {
+            console.error('[RENDERER] Fatal error in gemini-response handler:', e);
+            const container = view === 'chat' ? chatMessages : meetsChatContainer;
+            if (container) {
+                addMessage(`Error displaying response: ${e.message}`, 'error', container);
+            }
+        }
+    });
+
+    // Handle meet service errors
+    ipcRenderer.on('meet-error', (event, error) => {
+        console.error('Meet service error:', error);
+        meetStatus.textContent = `Error: ${error.message || error}`;
+        isListening = false;
+        meetToggleButton.textContent = 'Start Listening';
+        meetToggleButton.classList.remove('listening');
+        
+        // Show error in chat as well
+        addMessage(`Error: ${error.message || 'An error occurred with the voice service'}`, 'error', meetsChatContainer);
+    });
+
+    // --- Core Functions ---
+    // In renderer.js
+function switchView(viewName) {
+    // Hide all views
+    document.querySelectorAll('.view').forEach(view => {
+        view.classList.remove('active');
+        view.style.display = 'none';
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.action-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show the selected view
+    const view = document.getElementById(`${viewName}-view`);
+    const button = document.getElementById(`${viewName}-btn`);
+    
+    if (view) {
+        view.classList.add('active');
+        view.style.display = 'block';
+    }
+    if (button) {
+        button.classList.add('active');
+    }
+    
+    // Focus the input if switching to chat or meets view
+    if (viewName === 'chat') {
+        setTimeout(() => {
+            const input = document.getElementById('chat-input');
+            if (input) input.focus();
+        }, 0);
+    } else if (viewName === 'meets') {
+        setTimeout(() => {
+            const input = document.getElementById('meets-chat-input');
+            if (input) input.focus();
+        }, 0);
+    }
+}
+
+    // Send message in chat view
+    function sendChatMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // Add user message to chat
+        addMessage(message, 'user', chatMessages);
+        chatInput.value = '';
+        autoResizeTextarea(chatInput);
+
+        // Send to Gemini
+        ipcRenderer.send('gemini-prompt', {
+            view: 'chat',
+            prompt: message,
+            sessionId: 'chat-session-' + Date.now()
+        });
+    }
+
+    // Send message in meets view
+    function sendMeetsChatMessage() {
+        const message = meetsChatInput.value.trim();
+        if (!message) return;
+        
+        // Add user message to meets chat
+        addMessage(message, 'user', meetsChatContainer);
+        meetsChatInput.value = '';
+        autoResizeTextarea(meetsChatInput);
+        
+        // Send to Gemini
+        ipcRenderer.send('gemini-prompt', { 
+            view: 'meets',
+            prompt: message,
+            sessionId: 'meet-session-' + Date.now()
+        });
+    }
+
+// --- Helper Functions ---
+function addMessage(text, type, container, isMarkdown = false) {
+    if (!container) {
+        console.error('Cannot add message: Container is null or undefined');
+        return;
+    }
+    
+    // Create message container
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}-message`;
+    
+    try {
+        // Add timestamp
+        const timestamp = new Date().toLocaleTimeString();
+        const timestampSpan = document.createElement('span');
+        timestampSpan.className = 'message-timestamp';
+        timestampSpan.textContent = `[${timestamp}] `;
+        messageDiv.appendChild(timestampSpan);
+        
+        // Add message content
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'message-content';
+        
+        if (isMarkdown) {
+            contentSpan.innerHTML = renderMarkdown(text);
+            // Add copy buttons to code blocks
+            addCopyButtons(contentSpan);
+        } else {
+            contentSpan.textContent = text;
+        }
+        
+        messageDiv.appendChild(contentSpan);
+        container.appendChild(messageDiv);
+        
+        // Auto-scroll to the bottom of the container
+        container.scrollTop = container.scrollHeight;
+        
+        console.log(`Added ${type} message to ${container.id || 'unknown-container'}`);
+    } catch (error) {
+        console.error('Error adding message:', error);
+        // Fallback to simple text if there's an error with markdown rendering
+        messageDiv.textContent = text;
+        container.appendChild(messageDiv);
+    }
+}
+
+function renderMarkdown(text) {
+        if (typeof marked === 'undefined') return text;
+        const html = marked.parse(text);
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        if (typeof hljs !== 'undefined') {
+            tempDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        }
+        return tempDiv.innerHTML;
+    }
+
+    function addCopyButtons(container) {
+        container.querySelectorAll('pre').forEach(pre => {
+            if (pre.querySelector('.copy-btn')) return;
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-btn';
+            copyBtn.textContent = 'Copy';
+            copyBtn.addEventListener('click', () => {
+                const code = pre.querySelector('code').innerText;
+                navigator.clipboard.writeText(code).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+                });
+            });
+            pre.appendChild(copyBtn);
+        });
+    }
+
+    function autoResizeTextarea(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+
+    function updateApiKeyStatus(element, success, serviceName) {
+        element.textContent = success ? `${serviceName} API key saved!` : `Failed to save ${serviceName} key.`;
+        element.className = `status-message ${success ? 'success' : 'error'}`;
+    }
+
+    async function checkGeminiStatus() {
+        const isReady = await ipcRenderer.invoke('get-gemini-status');
+        updateApiKeyStatus(geminiApiKeyStatus, isReady, 'Gemini');
+    }
+
+    function handleDrag(e) {
+        if (!isDragging) return;
+        ipcRenderer.send('window-move', { x: e.screenX - offsetX, y: e.screenY - offsetY });
+    }
+
+    function stopDrag() {
+        isDragging = false;
+        document.removeEventListener('mousemove', handleDrag);
+        document.removeEventListener('mouseup', stopDrag);
+    }
+});
 </file>
 
 </files>

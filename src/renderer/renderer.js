@@ -1,124 +1,143 @@
 const { ipcRenderer } = require('electron');
 
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded');
+    // --- DOM Elements ---
+    const titleBar = document.querySelector('.title-bar');
 
-    // DOM elements
-    const noteTextarea = document.getElementById('note');
+    // View Buttons
     const settingsBtn = document.getElementById('settings-btn');
-    const settingsPanel = document.getElementById('settings-panel');
+    const chatBtn = document.getElementById('chat-btn');
+    const meetsBtn = document.getElementById('meets-btn');
+
+    // Views
+    const settingsView = document.getElementById('settings-view');
+    const chatView = document.getElementById('chat-view');
+    const meetsView = document.getElementById('meets-view');
+
+    // Settings Elements
     const opacitySlider = document.getElementById('opacity-slider');
     const opacityValue = document.getElementById('opacity-value');
     const alwaysOnTopBtn = document.getElementById('always-on-top-btn');
-    const alwaysOnTopStatus = document.getElementById('always-on-top-status');
-    const modeToggleBtn = document.getElementById('mode-toggle');
-    const notesView = document.getElementById('notes-view');
-    const chatView = document.getElementById('chat-view');
+    const geminiApiKeyInput = document.getElementById('gemini-api-key-input');
+    const saveGeminiApiKeyBtn = document.getElementById('save-gemini-api-key-btn');
+    const geminiApiKeyStatus = document.getElementById('gemini-api-key-status');
+    const assemblyAiApiKeyInput = document.getElementById('assemblyai-api-key-input');
+    const saveAssemblyAiApiKeyBtn = document.getElementById('save-assemblyai-api-key-btn');
+    const assemblyAiApiKeyStatus = document.getElementById('assemblyai-api-key-status');
+
+    // Chat Elements
     const chatInput = document.getElementById('chat-input');
     const sendMessageBtn = document.getElementById('send-message');
     const chatMessages = document.getElementById('chat-messages');
-    const geminiApiKeyInput = document.getElementById('gemini-api-key');
-    const saveApiKeyBtn = document.getElementById('save-api-key');
-    const apiKeyStatus = document.getElementById('api-key-status');
-    const titleBar = document.querySelector('.title-bar');
 
-    let isChatMode = false;
+    // Meet Elements
+    const meetStartButton = document.getElementById('meet-start-button');
+    const meetStopButton = document.getElementById('meet-stop-button');
+    const meetStatus = document.getElementById('meet-status');
+    const meetsChatContainer = document.getElementById('meets-chat-container');
+    const meetsChatInput = document.getElementById('meets-chat-input');
+    const meetsSendMessageBtn = document.getElementById('meets-send-message');
+
+    // --- State ---
     let isDragging = false;
     let offsetX, offsetY;
+    let isListening = false;
+    let finalTranscript = '';
 
-    // Configure marked.js for better markdown parsing
+    // --- Initial Setup ---
     if (typeof marked !== 'undefined') {
-        marked.setOptions({
-            breaks: true,
-            gfm: true,
-            sanitize: false,
-            smartLists: true,
-            smartypants: false
+        marked.setOptions({ breaks: true, gfm: true });
+    }
+    initializeApp();
+
+    function initializeApp() {
+        switchView('settings'); // Default view is now Settings
+        checkGeminiStatus();
+        ipcRenderer.invoke('get-opacity').then(opacity => {
+            opacitySlider.value = opacity * 100;
+            opacityValue.textContent = opacity * 100;
+            document.body.style.opacity = opacity;
+        });
+        ipcRenderer.invoke('get-always-on-top').then(isAlwaysOnTop => {
+            alwaysOnTopBtn.textContent = isAlwaysOnTop ? 'Disable Always on Top' : 'Enable Always on Top';
+        });
+        ipcRenderer.invoke('get-assemblyai-api-key').then(apiKey => {
+            if (apiKey) assemblyAiApiKeyInput.value = apiKey;
+        });
+        ipcRenderer.invoke('get-gemini-api-key').then(apiKey => {
+            if (apiKey) geminiApiKeyInput.value = apiKey;
+        });
+        document.querySelectorAll('input, textarea, button').forEach(el => {
+            el.style.webkitAppRegion = 'no-drag';
         });
     }
 
-    // Load initial state from main process
-    ipcRenderer.on('load-notes', (event, notes) => {
-        console.log('Renderer: Received notes:', notes);
-        noteTextarea.value = notes;
+    // --- Event Listeners ---
+
+    // Meet Controls
+    meetStartButton.addEventListener('click', () => {
+        ipcRenderer.send('start-meet');
     });
 
-    ipcRenderer.on('update-opacity', (event, opacity) => {
-        console.log('Renderer: Received opacity:', opacity);
-        const opacityPercentage = Math.round(parseFloat(opacity) * 100) || 90;
-        opacitySlider.value = opacityPercentage;
-        opacityValue.textContent = opacityPercentage;
-        document.body.style.opacity = opacity;
+    meetStopButton.addEventListener('click', () => {
+        ipcRenderer.send('stop-meet');
     });
 
-    ipcRenderer.on('update-always-on-top-status', (event, isAlwaysOnTop) => {
-        console.log('Renderer: Received always-on-top status:', isAlwaysOnTop);
-        alwaysOnTopStatus.textContent = isAlwaysOnTop ? 'On' : 'Off';
-    });
+    // View Switching
+    settingsBtn.addEventListener('click', () => switchView('settings'));
+    chatBtn.addEventListener('click', () => switchView('chat'));
+    meetsBtn.addEventListener('click', () => switchView('meets'));
 
-    // Save notes as user types
-    noteTextarea.addEventListener('input', (e) => {
-        console.log('Note textarea input:', e.target.value);
-        ipcRenderer.send('save-notes', e.target.value);
-    });
-
-    // Log chat input
-    chatInput.addEventListener('input', (e) => {
-        console.log('Chat input:', e.target.value);
-    });
-
-    // Toggle settings panel
-    settingsBtn.addEventListener('click', () => {
-        settingsPanel.classList.toggle('visible');
-    });
-
-    // Handle opacity change
+    // Settings
     opacitySlider.addEventListener('input', (e) => {
-        const opacity = e.target.value;
-        console.log('Opacity:', opacity);
-        opacityValue.textContent = opacity;
-        document.body.style.opacity = opacity / 100;
-        ipcRenderer.send('update-opacity', opacity / 100);
+        const opacity = e.target.value / 100;
+        opacityValue.textContent = e.target.value;
+        document.body.style.opacity = opacity;
+        ipcRenderer.send('update-opacity', opacity);
+    });
+    alwaysOnTopBtn.addEventListener('click', () => ipcRenderer.send('toggle-always-on-top'));
+
+    // API Keys
+    saveGeminiApiKeyBtn.addEventListener('click', async () => {
+        const success = await ipcRenderer.invoke('set-gemini-api-key', geminiApiKeyInput.value.trim());
+        updateApiKeyStatus(geminiApiKeyStatus, success, 'Gemini');
+    });
+    saveAssemblyAiApiKeyBtn.addEventListener('click', async () => {
+        const success = await ipcRenderer.invoke('set-assemblyai-api-key', assemblyAiApiKeyInput.value.trim());
+        updateApiKeyStatus(assemblyAiApiKeyStatus, success, 'AssemblyAI');
     });
 
-    // Toggle always on top
-    alwaysOnTopBtn.addEventListener('click', () => {
-        ipcRenderer.send('toggle-always-on-top');
-    });
+    // Chat
+    if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+    }
 
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-        console.log('Keydown:', e.key, 'Meta:', e.metaKey, 'Ctrl:', e.ctrlKey);
-        // Cmd+T to toggle mode
-        if (e.key === 't' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            console.log('Toggling view');
-            toggleView();
-        }
-        // Cmd+, to open settings
-        else if (e.key === ',' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            console.log('Toggling settings');
-            settingsPanel.classList.toggle('visible');
-        }
-        // Close settings panel with Escape
-        else if (e.key === 'Escape' && settingsPanel.classList.contains('visible')) {
-            settingsPanel.classList.remove('visible');
-        }
-        // Enter to send message in chat
-        else if (e.key === 'Enter' && !e.shiftKey && isChatMode && e.target === chatInput) {
-            e.preventDefault();
-            sendMessageBtn.click();
-        }
-    });
+    if (sendMessageBtn) {
+        sendMessageBtn.addEventListener('click', sendChatMessage);
+    }
 
-    // Make window draggable
+    // Meets Chat
+    if (meetsChatInput) {
+        meetsChatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMeetsChatMessage();
+            }
+        });
+    }
+
+    if (meetsSendMessageBtn) {
+        meetsSendMessageBtn.addEventListener('click', sendMeetsChatMessage);
+    }
+
+    // Window Dragging
     titleBar.addEventListener('mousedown', (e) => {
-        // We check if the target is not a button to avoid conflicts
-        if (e.target.closest('.action-btn')) {
-            return;
-        }
-        console.log('Title bar clicked, starting drag:', e.target);
+        if (e.target.closest('.action-btn')) return;
         isDragging = true;
         offsetX = e.clientX;
         offsetY = e.clientY;
@@ -126,237 +145,255 @@ window.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('mouseup', stopDrag);
     });
 
+    // --- IPC Handlers ---
+    ipcRenderer.on('update-always-on-top-status', (event, isAlwaysOnTop) => {
+        alwaysOnTopBtn.textContent = isAlwaysOnTop ? 'Disable Always on Top' : 'Enable Always on Top';
+    });
+    
+    // This handler now correctly manages the start/stop button states.
+    ipcRenderer.on('meet-status-update', (event, status) => {
+        meetStatus.textContent = `Status: ${status}`;
+        isListening = (status === 'listening');
+        if (isListening) {
+            meetStartButton.disabled = true;
+            meetStopButton.disabled = false;
+        } else {
+            meetStartButton.disabled = false;
+            meetStopButton.disabled = true;
+        }
+    });
+
+    // Handle transcript updates from the meet service
+    ipcRenderer.on('meet-transcript-update', (event, transcript) => {
+        try {
+            console.log('Received transcript update:', transcript);
+            
+            if (transcript.message_type === 'FinalTranscript' && transcript.text && transcript.text.trim()) {
+                const transcriptText = transcript.text.trim();
+                console.log(`Processing transcript: "${transcriptText}"`);
+                
+                // Add user's transcribed message to the chat
+                addMessage(transcriptText, 'user', meetsChatContainer);
+                
+                // If there's a response from the meet service, add it to the chat
+                if (transcript.response) {
+                    console.log('Adding meet service response to chat');
+                    addMessage(transcript.response, 'ai', meetsChatContainer, true);
+                }
+            }
+        } catch (error) {
+            console.error('Error processing transcript:', error);
+            meetStatus.textContent = `Error: ${error.message}`;
+            
+            // Show error in chat as well
+            addMessage(`Error processing transcript: ${error.message}`, 'error', meetsChatContainer);
+        }
+    });
+    
+    // Handle Gemini responses for both chat and meet views
+    ipcRenderer.on('gemini-response', (event, { view, response, error, sessionId }) => {
+        try {
+            console.log(`[RENDERER] Received Gemini response payload:`, { view, response, error, sessionId });
+
+            const container = view === 'chat' ? chatMessages : meetsChatContainer;
+            if (!container) {
+                console.error(`[RENDERER] Container not found for view: ${view}`);
+                return;
+            }
+
+            if (error) {
+                console.error('[RENDERER] Gemini API Error:', error);
+                addMessage(`Error: ${response || 'Failed to get response from Gemini'}`, 'error', container);
+                return;
+            }
+
+            if (!response) {
+                console.warn('[RENDERER] Empty response from Gemini');
+                addMessage('Received an empty response from Gemini.', 'ai', container);
+                return;
+            }
+
+            console.log(`[RENDERER] Adding AI response to ${container.id}:`, response);
+            addMessage(response, 'ai', container, true);
+
+        } catch (e) {
+            console.error('[RENDERER] Fatal error in gemini-response handler:', e);
+            const container = view === 'chat' ? chatMessages : meetsChatContainer;
+            if (container) {
+                addMessage(`Error displaying response: ${e.message}`, 'error', container);
+            }
+        }
+    });
+
+    // Handle meet service errors
+    ipcRenderer.on('meet-error', (event, error) => {
+        console.error('Meet service error:', error);
+        meetStatus.textContent = `Error: ${error.message || error}`;
+        isListening = false;
+        // Correctly reset button states
+        meetStartButton.disabled = false;
+        meetStopButton.disabled = true;
+        
+        // Show error in chat as well
+        addMessage(`Error: ${error.message || 'An error occurred with the voice service'}`, 'error', meetsChatContainer);
+    });
+
+    // --- Core Functions ---
+    function switchView(viewName) {
+        document.querySelectorAll('.view').forEach(view => {
+            view.classList.remove('active');
+            view.style.display = 'none';
+        });
+        
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        const view = document.getElementById(`${viewName}-view`);
+        const button = document.getElementById(`${viewName}-btn`);
+        
+        if (view) {
+            view.classList.add('active');
+            view.style.display = 'block';
+        }
+        if (button) {
+            button.classList.add('active');
+        }
+        
+        if (viewName === 'chat') {
+            setTimeout(() => {
+                const input = document.getElementById('chat-input');
+                if (input) input.focus();
+            }, 0);
+        } else if (viewName === 'meets') {
+            setTimeout(() => {
+                const input = document.getElementById('meets-chat-input');
+                if (input) input.focus();
+            }, 0);
+        }
+    }
+
+    function sendChatMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        addMessage(message, 'user', chatMessages);
+        chatInput.value = '';
+        autoResizeTextarea(chatInput);
+
+        ipcRenderer.send('gemini-prompt', {
+            view: 'chat',
+            prompt: message,
+            sessionId: 'chat-session-' + Date.now()
+        });
+    }
+
+    function sendMeetsChatMessage() {
+        const message = meetsChatInput.value.trim();
+        if (!message) return;
+        
+        addMessage(message, 'user', meetsChatContainer);
+        meetsChatInput.value = '';
+        autoResizeTextarea(meetsChatInput);
+        
+        ipcRenderer.send('gemini-prompt', { 
+            view: 'meets',
+            prompt: message,
+            sessionId: 'meet-session-' + Date.now()
+        });
+    }
+
+    // --- Helper Functions ---
+    function addMessage(text, type, container, isMarkdown = false) {
+        if (!container) {
+            console.error('Cannot add message: Container is null or undefined');
+            return;
+        }
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}-message`;
+        
+        try {
+            const timestamp = new Date().toLocaleTimeString();
+            const timestampSpan = document.createElement('span');
+            timestampSpan.className = 'message-timestamp';
+            timestampSpan.textContent = `[${timestamp}] `;
+            messageDiv.appendChild(timestampSpan);
+            
+            const contentSpan = document.createElement('span');
+            contentSpan.className = 'message-content';
+            
+            if (isMarkdown) {
+                contentSpan.innerHTML = renderMarkdown(text);
+                addCopyButtons(contentSpan);
+            } else {
+                contentSpan.textContent = text;
+            }
+            
+            messageDiv.appendChild(contentSpan);
+            container.appendChild(messageDiv);
+            
+            container.scrollTop = container.scrollHeight;
+            
+            console.log(`Added ${type} message to ${container.id || 'unknown-container'}`);
+        } catch (error) {
+            console.error('Error adding message:', error);
+            messageDiv.textContent = text;
+            container.appendChild(messageDiv);
+        }
+    }
+
+    function renderMarkdown(text) {
+        if (typeof marked === 'undefined') return text;
+        const html = marked.parse(text);
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        if (typeof hljs !== 'undefined') {
+            tempDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        }
+        return tempDiv.innerHTML;
+    }
+
+    function addCopyButtons(container) {
+        container.querySelectorAll('pre').forEach(pre => {
+            if (pre.querySelector('.copy-btn')) return;
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-btn';
+            copyBtn.textContent = 'Copy';
+            copyBtn.addEventListener('click', () => {
+                const code = pre.querySelector('code').innerText;
+                navigator.clipboard.writeText(code).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+                });
+            });
+            pre.appendChild(copyBtn);
+        });
+    }
+
+    function autoResizeTextarea(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+
+    function updateApiKeyStatus(element, success, serviceName) {
+        element.textContent = success ? `${serviceName} API key saved!` : `Failed to save ${serviceName} key.`;
+        element.className = `status-message ${success ? 'success' : 'error'}`;
+    }
+
+    async function checkGeminiStatus() {
+        const isReady = await ipcRenderer.invoke('get-gemini-status');
+        updateApiKeyStatus(geminiApiKeyStatus, isReady, 'Gemini');
+    }
+
     function handleDrag(e) {
         if (!isDragging) return;
-        const { screenX, screenY } = e;
-        ipcRenderer.send('window-move', {
-            x: screenX - offsetX,
-            y: screenY - offsetY
-        });
+        ipcRenderer.send('window-move', { x: e.screenX - offsetX, y: e.screenY - offsetY });
     }
 
     function stopDrag() {
         isDragging = false;
         document.removeEventListener('mousemove', handleDrag);
         document.removeEventListener('mouseup', stopDrag);
-    }
-
-    // Prevent text selection while dragging
-    document.addEventListener('selectstart', (e) => {
-        if (isDragging) {
-            e.preventDefault();
-            return false;
-        }
-    });
-
-    // Handle window resize
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            const { width, height } = document.body.getBoundingClientRect();
-            ipcRenderer.send('window-resize', { width, height });
-        }, 100);
-    });
-
-    // Listen for focus events from main process
-    ipcRenderer.on('window-focused', () => {
-        console.log('Renderer: Window focused');
-        noteTextarea.focus(); // Try forcing focus on the textarea
-    });
-
-    function toggleView() {
-        isChatMode = !isChatMode;
-        if (isChatMode) {
-            notesView.classList.remove('active');
-            chatView.classList.add('active');
-            modeToggleBtn.textContent = '📝';
-            chatInput.focus();
-        } else {
-            chatView.classList.remove('active');
-            notesView.classList.add('active');
-            modeToggleBtn.textContent = '💬';
-            noteTextarea.focus();
-        }
-    }
-    
-    if (modeToggleBtn) {
-        modeToggleBtn.addEventListener('click', toggleView);
-    }
-
-    // Send message to Gemini
-    sendMessageBtn.addEventListener('click', async () => {
-        const message = chatInput.value.trim();
-        if (!message) return;
-
-        console.log('Renderer: Sending message:', message);
-        appendMessage(message, 'user-message');
-        chatInput.value = '';
-        chatInput.style.height = 'auto'; // Reset height
-
-        // Show typing indicator
-        const typingIndicator = appendTypingIndicator();
-
-        try {
-            const response = await ipcRenderer.invoke('send-message-to-gemini', message);
-            console.log('Renderer: Received response:', response);
-            
-            // Remove typing indicator
-            removeTypingIndicator(typingIndicator);
-            
-            // Append AI response with markdown rendering
-            appendMessage(response, 'ai-message', true);
-        } catch (error) {
-            console.error('Renderer: Error sending message:', error.message);
-            
-            // Remove typing indicator
-            removeTypingIndicator(typingIndicator);
-            
-            appendMessage(`Error: ${error.message}`, 'error-message');
-        }
-    });
-
-    // Save API Key
-    saveApiKeyBtn.addEventListener('click', async () => {
-        const apiKey = geminiApiKeyInput.value.trim();
-        if (!apiKey) {
-            apiKeyStatus.textContent = 'Please enter an API key.';
-            apiKeyStatus.className = 'status-message error';
-            return;
-        }
-
-        try {
-            const success = await ipcRenderer.invoke('set-api-key', apiKey);
-            if (success) {
-                apiKeyStatus.textContent = 'API Key saved and verified!';
-                apiKeyStatus.className = 'status-message success';
-            } else {
-                throw new Error('Invalid API Key.');
-            }
-        } catch (error) {
-            apiKeyStatus.textContent = `Error: ${error.message}`;
-            apiKeyStatus.className = 'status-message error';
-        }
-    });
-
-    // Function to render markdown content
-    function renderMarkdown(text) {
-        if (typeof marked === 'undefined') {
-            return text; // Fallback to plain text if marked.js is not available
-        }
-
-        try {
-            let html = marked.parse(text);
-            
-            // Add syntax highlighting if highlight.js is available
-            if (typeof hljs !== 'undefined') {
-                // Find code blocks and highlight them
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = html;
-                
-                const codeBlocks = tempDiv.querySelectorAll('pre code');
-                codeBlocks.forEach(block => {
-                    // Try to detect language or use auto-detection
-                    const result = hljs.highlightAuto(block.textContent);
-                    block.innerHTML = result.value;
-                    block.classList.add('hljs');
-                });
-                
-                html = tempDiv.innerHTML;
-            }
-            
-            return html;
-        } catch (error) {
-            console.error('Error rendering markdown:', error);
-            return text; // Fallback to plain text
-        }
-    }
-
-    // Function to add copy buttons to code blocks
-    function addCopyButtons(messageElement) {
-        const codeBlocks = messageElement.querySelectorAll('pre');
-        codeBlocks.forEach((pre, index) => {
-            const container = document.createElement('div');
-            container.className = 'code-block-container';
-            
-            const copyButton = document.createElement('button');
-            copyButton.className = 'copy-button';
-            copyButton.textContent = 'Copy';
-            copyButton.onclick = () => {
-                const code = pre.querySelector('code') || pre;
-                navigator.clipboard.writeText(code.textContent).then(() => {
-                    copyButton.textContent = 'Copied!';
-                    setTimeout(() => {
-                        copyButton.textContent = 'Copy';
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy:', err);
-                });
-            };
-            
-            // Wrap the pre element
-            pre.parentNode.insertBefore(container, pre);
-            container.appendChild(pre);
-            container.appendChild(copyButton);
-        });
-    }
-
-    function appendMessage(text, type, isMarkdown = false) {
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message', type);
-        
-        const contentDiv = document.createElement('div');
-        contentDiv.classList.add('message-content');
-        
-        if (isMarkdown && type === 'ai-message') {
-            // Render markdown for AI messages
-            contentDiv.innerHTML = renderMarkdown(text);
-            
-            // Add copy buttons to code blocks after rendering
-            addCopyButtons(contentDiv);
-
-        } else {
-            // Plain text for user messages and errors
-            contentDiv.textContent = text;
-        }
-        
-        messageDiv.appendChild(contentDiv);
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        
-        return messageDiv;
-    }
-
-    function appendTypingIndicator() {
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message', 'ai-message', 'typing-indicator');
-        
-        const contentDiv = document.createElement('div');
-        contentDiv.classList.add('message-content');
-        contentDiv.innerHTML = '<em>AI is typing...</em>';
-        
-        messageDiv.appendChild(contentDiv);
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        return messageDiv;
-    }
-
-    function removeTypingIndicator(typingIndicator) {
-        if (typingIndicator && typingIndicator.parentNode) {
-            typingIndicator.parentNode.removeChild(typingIndicator);
-        }
-    }
-
-    // Auto-resize chat input
-    chatInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-    });
-
-    // Initialize highlight.js if available
-    if (typeof hljs !== 'undefined') {
-        hljs.configure({
-            ignoreUnescapedHTML: true
-        });
     }
 });

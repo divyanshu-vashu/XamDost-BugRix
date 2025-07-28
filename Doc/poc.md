@@ -30,7 +30,7 @@ Of course. Here is a detailed Product Requirements Document (PRD) and a Proof of
 [-] | F-03 | **Overlay User Interface** | The application window must be frameless, have a semi-transparent background, and always stay on top of other application windows to feel like a native overlay. | P0 |
 [-] | F-04 | **Basic Text Input** | The window must contain a simple text input area where the user can type and view notes in real-time. | P1 |
 [] | F-05 | **voice Input** | there should listen voice from mic and sound and there is button it should auto detect when user stop from 3 sec else it will continue listen and reply , there should be 1 button for start litening and stop.
-
+[] f-06 three view - meet view , chat view and setting page ;
 
 #### 3.2. Non-Functional Requirements
 

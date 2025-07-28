@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <title>XamDost</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Add marked.js for markdown parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
-    <!-- Add highlight.js for code syntax highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
@@ -16,49 +14,78 @@
             <div class="title-bar-left">
                 <div class="app-title">XamDost</div>
                 <div class="window-actions">
-                    <button id="mode-toggle" class="action-btn" title="Toggle Mode (⌘T)">💬</button>
-                    <button id="settings-btn" class="action-btn" title="Settings (⌘,)">⚙️</button>
+                    <button id="meets-btn" class="action-btn" title="Meets (⌘1)">🎙️</button>
+                    <button id="chat-btn" class="action-btn" title="Chat (⌘2)">💬</button>
+                    <button id="settings-btn" class="action-btn" title="Settings (⌘,)" class="active">⚙️</button>
                 </div>
-            </div>
-        </div>
-    
-        <!-- Settings Panel -->
-        <div class="settings-panel" id="settings-panel">
-            <div class="setting-item">
-                <label for="opacity-slider">Opacity: <span id="opacity-value">90</span>%</label>
-                <input type="range" id="opacity-slider" min="10" max="100" value="90">
-            </div>
-            <div class="setting-item">
-                <button id="always-on-top-btn">Always on Top: <span id="always-on-top-status">On</span></button>
-            </div>
-            <div class="setting-divider"></div>
-            <div class="setting-item">
-                <label for="gemini-api-key">Gemini API Key:</label>
-                <div class="api-key-input">
-                    <input type="password" id="gemini-api-key" placeholder="Enter your Gemini API key">
-                    <button id="save-api-key">Save</button>
-                </div>
-                <div id="api-key-status" class="status-message"></div>
             </div>
         </div>
 
-        <div id="notes-view" class="view active">
-            <textarea id="note" placeholder="Type your notes here..."></textarea>
-        </div>
-
-        <div id="chat-view" class="view">
-            <div id="chat-messages" class="chat-messages">
-                <div class="message ai-message">
-                    <div class="message-content">Hello! I'm your AI assistant. How can I help you today?</div>
+        <div class="content">
+            <!-- Settings View (Default) -->
+            <div id="settings-view" class="view">
+                <h2>Settings</h2>
+                <div class="setting-item">
+                    <label for="opacity-slider">Opacity: <span id="opacity-value">90</span>%</label>
+                    <input type="range" id="opacity-slider" min="10" max="100" value="90">
+                </div>
+                <div class="setting-item">
+                    <button id="always-on-top-btn">Always on Top: On</button>
+                </div>
+                <div class="setting-divider"></div>
+                <div class="api-key-container">
+                    <label for="gemini-api-key-input">Gemini API Key:</label>
+                    <input type="password" id="gemini-api-key-input" placeholder="Enter your Gemini API key">
+                    <button id="save-gemini-api-key-btn">Save</button>
+                    <div id="gemini-api-key-status" class="status-message"></div>
+                </div>
+                <div class="api-key-container">
+                    <label for="assemblyai-api-key-input">AssemblyAI API Key:</label>
+                    <input type="password" id="assemblyai-api-key-input" placeholder="Enter your AssemblyAI API key">
+                    <button id="save-assemblyai-api-key-btn">Save</button>
+                    <div id="assemblyai-api-key-status" class="status-message"></div>
                 </div>
             </div>
-            <div class="chat-input-container">
-                <textarea id="chat-input" placeholder="Type a message..." rows="1"></textarea>
-                <button id="send-message">Send</button>
+
+            <!-- Chat View -->
+            <div id="chat-view" class="view">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="message ai-message">
+                        <div class="message-content">Hello! I'm your AI assistant. How can I help you today?</div>
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <textarea id="chat-input" placeholder="Type a message..." rows="1"></textarea>
+                    <button id="send-message">Send</button>
+                </div>
+            </div>
+
+            <!-- Meets View -->
+            <div id="meets-view" class="view">
+                <div class="meet-header">
+                    <div class="meet-controls">
+                        <button id="meet-start-button" class="meet-toggle">
+                            <span class="mic-icon">🎙️</span>
+                            <span class="button-text">Start Listening</span>
+                        </button>
+                        <button id="meet-stop-button" class="meet-toggle stop-button" disabled>
+                            <span class="stop-icon">⏹️</span>
+                            <span class="button-text">Stop</span>
+                        </button>
+                    </div>
+                    <div id="meet-status" class="status-indicator">Status: Idle</div>
+                </div>
+                <div id="meets-chat-container" class="chat-messages"></div>
+                <div class="chat-input-container">
+                    <textarea id="meets-chat-input" placeholder="Type a message..." rows="1"></textarea>
+                    <button id="meets-send-message" class="send-button">
+                        <span class="send-icon">↑</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-    
     <script src="renderer.js"></script>
+    <script src="preload.js"></script>
 </body>
 </html>
