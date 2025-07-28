@@ -47,11 +47,15 @@ class MeetService extends EventEmitter {
 
         this.isListening = true;
         this.emit('status', 'connecting');
-        console.log('Starting transcription using the example configuration...');
+        console.log('Starting transcription...');
 
         try {
             this.transcriber = this.assembly.streaming.transcriber({
                 sampleRate: 16_000,
+                // --- KEY CHANGE ---
+                // We no longer need this, as the new model handles it.
+                // end_utterance_silence_threshold: 700,
+                formatTurns: true,
             });
 
             // --- Event Handlers ---
@@ -72,29 +76,31 @@ class MeetService extends EventEmitter {
                 this.emit('status', 'idle');
             });
 
-            // This handles the transcript and sends it to your app's Gemini flow
-            this.transcriber.on('transcript.final', async (turn) => {
-                if (turn.text && turn.text.trim()) {
-                    const transcriptText = turn.text.trim();
-                    console.log(`[${new Date().toISOString()}] [Session ${this.sessionId}] Transcript:`, transcriptText);
+            // --- THE MAIN FIX ---
+            // Listen for 'turn' events and check for the end of an utterance.
+            this.transcriber.on('turn', async (turn) => {
+                // For debugging, you can log every partial turn.
+                // if (turn.transcript) {
+                //     console.log("Partial Turn:", turn.transcript);
+                // }
+
+                // Process the turn only when it's considered complete.
+                if (turn.end_of_turn && turn.transcript && turn.transcript.trim()) {
+                    const transcriptText = turn.transcript.trim();
+                    console.log(`[FINALIZED TURN]:`, transcriptText);
                     
                     try {
-                        // Get Gemini response for the transcript
                         const response = await geminiService.sendMessage(transcriptText, { isMeet: true });
-                        
-                        // Emit the transcript event to the main process
                         this.emit('transcript', {
-                            message_type: 'FinalTranscript',
+                            message_type: 'FinalTranscript', // We keep this for consistency in the renderer
                             text: transcriptText,
                             response: response,
                             sessionId: this.sessionId,
                             timestamp: new Date().toISOString()
                         });
-                        
-                        // Also emit a status update
                         this.emit('status', 'transcript_processed');
                     } catch (error) {
-                        console.error(`[${new Date().toISOString()}] Error processing transcript with Gemini:`, error);
+                        console.error(`Error processing transcript with Gemini:`, error);
                         this.emit('error', {
                             message: 'Failed to process transcript with Gemini',
                             error: error.message,
@@ -104,54 +110,34 @@ class MeetService extends EventEmitter {
                 }
             });
 
-            // --- Connect and Record ---
-            console.log(`[${new Date().toISOString()}] Connecting to AssemblyAI...`);
             await this.transcriber.connect();
-            console.log(`[${new Date().toISOString()}] Connected to AssemblyAI. Starting local recording...`);
+            console.log(`Connected to AssemblyAI. Starting local recording...`);
 
-            // Configure audio recording
             const recordConfig = {
                 channels: 1,
                 sampleRate: 16000,
                 audioType: 'wav',
-                verbose: true,
-                threshold: 0.5, // Silence threshold
-                silence: '1.0'  // Seconds of silence before ending
+                verbose: false, // Can be set to false now
             };
             
-            console.log(`[${new Date().toISOString()}] Starting audio recording with config:`, recordConfig);
-            
-            try {
-                this.recordingProcess = recorder.record(recordConfig);
-                console.log(`[${new Date().toISOString()}] Audio recording started successfully`);
-            } catch (error) {
-                console.error(`[${new Date().toISOString()}] Failed to start recording:`, error);
-                throw new Error(`Failed to start recording: ${error.message}`);
-            }
-            
-            if (!this.recordingProcess) {
-                throw new Error("Failed to start recording. No recording process was created.");
-            }
+            this.recordingProcess = recorder.record(recordConfig);
 
-            // Handle recording stream errors
             const audioStream = this.recordingProcess.stream();
             audioStream.on('error', (err) => {
-                console.error(`[${new Date().toISOString()}] Recording stream error:`, err);
+                console.error(`Recording stream error:`, err);
                 this.emit('error', `Recording stream error: ${err.message}`);
                 this.stop().catch(console.error);
             });
 
-            // Pipe audio to AssemblyAI
-            console.log(`[${new Date().toISOString()}] Piping audio stream to AssemblyAI...`);
-            try {
-                const webStream = Readable.toWeb(audioStream);
-                await webStream.pipeTo(this.transcriber.stream());
-                console.log(`[${new Date().toISOString()}] Audio stream piping completed`);
-            } catch (error) {
-                console.error(`[${new Date().toISOString()}] Error piping audio stream:`, error);
-                this.emit('error', `Stream piping error: ${error.message}`);
-                await this.stop();
-            }
+            console.log(`Piping audio stream to AssemblyAI...`);
+            const webStream = Readable.toWeb(audioStream);
+            webStream.pipeTo(this.transcriber.stream())
+                .then(() => console.log('Piping finished.'))
+                .catch(async (error) => {
+                    console.error(`Error piping audio stream:`, error);
+                    this.emit('error', `Stream piping error: ${error.message}`);
+                    await this.stop();
+                });
 
         } catch (error) {
             console.error('Error in start method:', error);
@@ -162,44 +148,25 @@ class MeetService extends EventEmitter {
 
     async stop() {
         if (!this.isListening && !this.recordingProcess && !this.transcriber) {
-            console.log(`[${new Date().toISOString()}] No active transcription to stop`);
             return;
         }
         
-        console.log(`[${new Date().toISOString()}] Stopping transcription...`);
+        console.log(`Stopping transcription...`);
         this.isListening = false;
 
-        try {
-            // Stop the recording process first
-            if (this.recordingProcess) {
-                console.log(`[${new Date().toISOString()}] Stopping audio recording...`);
-                await new Promise((resolve) => {
-                    this.recordingProcess.stop();
-                    this.recordingProcess = null;
-                    console.log(`[${new Date().toISOString()}] Audio recording stopped`);
-                    resolve();
-                });
-            }
-        } catch (error) {
-            console.error(`[${new Date().toISOString()}] Error stopping recording:`, error);
+        if (this.recordingProcess) {
+            this.recordingProcess.stop();
+            this.recordingProcess = null;
         }
 
-        try {
-            // Then close the transcriber connection
-            if (this.transcriber) {
-                console.log(`[${new Date().toISOString()}] Closing transcriber connection...`);
-                await this.transcriber.close();
-                this.transcriber = null;
-                console.log(`[${new Date().toISOString()}] Transcriber connection closed`);
-            }
-        } catch (error) {
-            console.error(`[${new Date().toISOString()}] Error closing transcriber:`, error);
+        if (this.transcriber && this.transcriber.status !== 'closed') {
+            await this.transcriber.close();
+            this.transcriber = null;
         }
 
         this.emit('status', 'idle');
-        console.log(`[${new Date().toISOString()}] Transcription service fully stopped`);
+        console.log(`Transcription service fully stopped`);
         
-        // Emit session end event
         this.emit('session_ended', { 
             sessionId: this.sessionId,
             timestamp: new Date().toISOString() 
@@ -207,4 +174,4 @@ class MeetService extends EventEmitter {
     }
 }
 
-module.exports = MeetService;
+module.exports = new MeetService();

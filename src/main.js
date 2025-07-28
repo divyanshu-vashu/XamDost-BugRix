@@ -2,7 +2,8 @@ const { app, BrowserWindow, globalShortcut, ipcMain, dialog, systemPreferences }
 const path = require('path');
 const Store = require('electron-store');
 const geminiService = require('./services/gemini');
-const MeetService = require('./services/meets');
+// FIX: We now require the INSTANCE of the service directly.
+const meetService = require('./services/meets'); 
 
 // Initialize @electron/remote
 require('@electron/remote/main').initialize();
@@ -18,7 +19,8 @@ const store = new Store({
 });
 
 let mainWindow;
-const meetService = new MeetService();
+// We no longer need this line because meetService is already an instance.
+// const meetService = new MeetService();
 
 function createWindow() {
   const { width, height, x, y } = store.get('windowBounds');
@@ -39,9 +41,9 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       backgroundThrottling: false,
-      webSecurity: false,          // From the first object
-      enableRemoteModule: true,    // From the second object
-      nodeIntegrationInWorker: true // From the second object
+      webSecurity: false,
+      enableRemoteModule: true,
+      nodeIntegrationInWorker: true
     },
     skipTaskbar: true
   });
@@ -61,17 +63,12 @@ function createWindow() {
 
   // Set up window event listeners
   mainWindow
-    // Window state events
     .on('maximize', () => mainWindow.webContents.send('window-maximized'))
     .on('unmaximize', () => mainWindow.webContents.send('window-unmaximized'))
-    
-    // Save window bounds
     .on('resize', saveWindowBounds)
     .on('move', saveWindowBounds)
     .on('moved', saveWindowBounds)
     .on('resized', saveWindowBounds)
-    
-    // Window close behavior
     .on('close', (e) => {
       if (!isQuitting) {
         e.preventDefault();
@@ -80,12 +77,9 @@ function createWindow() {
       }
       return true;
     })
-    
-    // Content protection
     .on('show', () => mainWindow.setContentProtection(true))
     .on('focus', () => {
       console.log('Main: Window focused');
-      // mainWindow.setContentProtection(true); // Temporarily disabled
       mainWindow.webContents.send('window-focused');
     });
 
@@ -127,7 +121,6 @@ function saveWindowBounds() {
   }
 }
 
-// This method will be called when Electron has finished initialization
 // Forward MeetService events to the renderer process with enhanced logging
 meetService.on('status', (status) => {
   console.log(`[${new Date().toISOString()}] MeetService status:`, status);
@@ -178,23 +171,18 @@ app.whenReady().then(async () => {
   createWindow();
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-// Quit when all windows are closed, except on macOS
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Save notes when received from renderer
 ipcMain.on('save-notes', (event, notes) => {
   store.set('notes', notes);
 });
 
-// Update window opacity
 ipcMain.on('update-opacity', (event, opacity) => {
   if (mainWindow) {
     mainWindow.setOpacity(opacity);
@@ -202,7 +190,6 @@ ipcMain.on('update-opacity', (event, opacity) => {
   }
 });
 
-// Toggle always on top
 ipcMain.on('toggle-always-on-top', async (event) => {
   const isAlwaysOnTop = !store.get('isAlwaysOnTop');
   store.set('isAlwaysOnTop', isAlwaysOnTop);
@@ -211,17 +198,14 @@ ipcMain.on('toggle-always-on-top', async (event) => {
   mainWindow.webContents.send('update-always-on-top-status', isAlwaysOnTop);
 });
 
-// Get current opacity
 ipcMain.handle('get-opacity', () => {
   return store.get('opacity', 0.9);
 });
 
-// Get always on top status
 ipcMain.handle('get-always-on-top', () => {
   return store.get('isAlwaysOnTop', true);
 });
 
-// Window movement handling
 ipcMain.on('window-move', (event, { x, y }) => {
   if (mainWindow && !mainWindow.isMaximized()) {
     mainWindow.setPosition(x, y);
@@ -239,10 +223,9 @@ ipcMain.on('window-resize', (event, { width, height }) => {
   }
 });
 
-// Gemini AI related IPC handlers
 ipcMain.handle('set-api-key', (event, apiKey) => {
   try {
-    store.set('geminiApiKey', apiKey); // Persist the key
+    store.set('geminiApiKey', apiKey); 
     console.log('Main: Gemini API key saved.');
     return geminiService.setApiKey(apiKey);
   } catch (error) {
@@ -264,8 +247,6 @@ ipcMain.handle('send-message-to-gemini', async (event, message) => {
   }
 });
 
-
-// Handle Gemini prompts from both chat and meets views
 ipcMain.on('gemini-prompt', async (event, { view, prompt, sessionId }) => {
   const isMeet = view === 'meets';
   console.log(`[${new Date().toISOString()}] Gemini prompt received for ${view} view (${isMeet ? 'meet' : 'chat'})`);
@@ -324,7 +305,6 @@ ipcMain.handle('get-gemini-status', () => {
   return geminiService.isInitialized;
 });
 
-// AssemblyAI related IPC handlers
 ipcMain.handle('set-assemblyai-api-key', (event, apiKey) => {
   try {
     store.set('assemblyAiApiKey', apiKey);
@@ -340,7 +320,6 @@ ipcMain.handle('get-assemblyai-api-key', () => {
   return store.get('assemblyAiApiKey');
 });
 
-// Meet service controls
 ipcMain.on('start-meet', async () => {
   try {
     console.log(`[${new Date().toISOString()}] Starting meet service...`);
@@ -373,8 +352,6 @@ ipcMain.on('stop-meet', async () => {
   }
 });
 
-// Clean up on quit
 app.on('will-quit', () => {
-  // Unregister all shortcuts
   globalShortcut.unregisterAll();
 });
