@@ -90,3 +90,6 @@ typings/
 
 # Electron-Forge
 out/
+
+repomix-output.xml
+repomix-ignore.xml

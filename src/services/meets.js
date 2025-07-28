@@ -52,10 +52,8 @@ class MeetService extends EventEmitter {
         try {
             this.transcriber = this.assembly.streaming.transcriber({
                 sampleRate: 16_000,
-                // --- KEY CHANGE ---
-                // We no longer need this, as the new model handles it.
-                // end_utterance_silence_threshold: 700,
                 formatTurns: true,
+                end_utterance_silence_threshold: 1050
             });
 
             // --- Event Handlers ---
@@ -85,7 +83,7 @@ class MeetService extends EventEmitter {
                 // }
 
                 // Process the turn only when it's considered complete.
-                if (turn.end_of_turn && turn.transcript && turn.transcript.trim()) {
+                if (turn.end_of_turn && turn.turn_is_formatted && turn.transcript && turn.transcript.trim()) {
                     const transcriptText = turn.transcript.trim();
                     console.log(`[FINALIZED TURN]:`, transcriptText);
                     
