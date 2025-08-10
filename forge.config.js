@@ -5,12 +5,16 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
-    icon: path.join(__dirname, 'src/media/spotify'), // Forge will automatically use .icns for macOS and .ico for Windows
-    // This object tells macOS why your app needs microphone access.
-    // It's required for the permission dialog to appear correctly.
+    icon: path.join(__dirname, 'src/media/spotify'), // Assumes 'src/media/icon.icns' exists
+
+    // This is the ONLY configuration needed for the permission prompt text.
+    // It is essential and must remain.
     extendInfo: {
       NSMicrophoneUsageDescription: 'This app needs access to your microphone to capture your speech for transcription and AI-powered interview coaching.'
-    }
+    },
+
+    // The osxSign block has been COMPLETELY REMOVED to prevent the
+    // "Code Signature Invalid" crash on local development builds.
   },
   rebuildConfig: {},
   makers: [
@@ -36,8 +40,6 @@ module.exports = {
       name: '@electron-forge/plugin-auto-unpack-natives',
       config: {},
     },
-    // Fuses are used to enable/disable various Electron functionality
-    // at package time, before code signing the application
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,
