@@ -5,7 +5,12 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
-    icon: path.join(__dirname, 'src/media/chrome'), // Forge will automatically use .icns for macOS and .ico for Windows
+    icon: path.join(__dirname, 'src/media/spotify'), // Forge will automatically use .icns for macOS and .ico for Windows
+    // This object tells macOS why your app needs microphone access.
+    // It's required for the permission dialog to appear correctly.
+    extendInfo: {
+      NSMicrophoneUsageDescription: 'This app needs access to your microphone to capture your speech for transcription and AI-powered interview coaching.'
+    }
   },
   rebuildConfig: {},
   makers: [

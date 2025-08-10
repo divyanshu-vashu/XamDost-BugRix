@@ -1,6 +1,6 @@
 {
   "name": "stealth-note",
-  "productName": "XamDost",
+  "productName": "Spotlfy",
   "version": "1.0.0",
   "description": "A private note-taking overlay that stays hidden during screen sharing",
   "main": "src/main.js",
