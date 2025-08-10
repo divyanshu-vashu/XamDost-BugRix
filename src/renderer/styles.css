@@ -5,15 +5,42 @@
     box-sizing: border-box;
 }
 
-/* 
-  FIX #1: THE CLICK-THROUGH PROBLEM
-  Make the body and html non-interactive by default. Clicks will pass through them.
-  This prevents the background from blocking clicks to the main app container.
-*/
+/* Color Variables */
+:root {
+    /* Light Theme (default) */
+    --bg-primary: rgba(255, 255, 255, 0.95);
+    --bg-secondary: #f8f9fa;
+    --text-primary: #333;
+    --text-secondary: #666;
+    --border-color: #e9ecef;
+    --accent-color: #4a90e2;
+    --accent-hover: #3a7bc8;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --input-bg: #ffffff;
+    --input-text: #333;
+}
+
+/* Dark Theme */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: rgba(30, 30, 35, 0.98);
+        --bg-secondary: #252529;
+        --text-primary: #f0f0f0;
+        --text-secondary: #b0b0b0;
+        --border-color: #444;
+        --accent-color: #5d9cec;
+        --accent-hover: #4a89dc;
+        --shadow-color: rgba(0, 0, 0, 0.3);
+        --input-bg: #2c2c30;
+        --input-text: #f0f0f0;
+    }
+}
+
+/* Base Styles */
 html, body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     background-color: transparent;
-    color: #333;
+    color: var(--text-primary);
     -webkit-user-select: none;
     user-select: none;
     overflow: hidden;
@@ -22,27 +49,24 @@ html, body {
     margin: 0;
     padding: 0;
     position: relative;
-    pointer-events: auto; /* Let clicks pass through */
+    pointer-events: auto;
 }
 
-/* 
-  FIX #2: RE-ENABLE CLICKS ON THE MAIN APP CONTAINER
-  Now, we make the main app container itself clickable again.
-*/
 #app {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(255, 255, 255, 0.95);
-    border-radius: 0 0 8px 8px; /* Only round bottom corners */
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background-color: var(--bg-primary);
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 2px 10px var(--shadow-color);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     pointer-events: auto;
     height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Window controls spacer for macOS traffic lights */
@@ -121,9 +145,9 @@ html, body {
 
 /* Settings panel */
 .settings-panel {
-    background-color: #f8f9fa;
+    background-color: var(--bg-secondary);
     padding: 12px;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border-color);
     display: none;
     overflow-y: auto;
     max-height: 300px;
@@ -137,43 +161,62 @@ html, body {
     margin-bottom: 16px;
 }
 
+.setting-item label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
 .setting-divider {
     height: 1px;
-    background-color: #e9ecef;
-    margin: 12px 0;
+    background-color: var(--border-color);
+    margin: 16px 0;
 }
 
-.api-key-input {
-    display: flex;
-    gap: 8px;
-    margin-top: 4px;
+.api-key-container {
+    margin-bottom: 16px;
 }
 
-.api-key-input input {
-    flex: 1;
-    padding: 6px 8px;
-    border: 1px solid #ced4da;
+.api-key-container label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.api-key-container input[type="password"] {
+    width: 100%;
+    padding: 8px;
+    background-color: var(--input-bg);
+    color: var(--input-text);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 14px;
+    margin-bottom: 8px;
+    transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
-.api-key-input button {
-    padding: 0 12px;
-    background-color: #4a90e2;
+.api-key-container button {
+    padding: 6px 12px;
+    background-color: var(--accent-color);
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
 }
 
-.api-key-input button:hover {
-    background-color: #3a7bc8;
+.api-key-container button:hover {
+    background-color: var(--accent-hover);
 }
 
 .status-message {
     font-size: 12px;
     margin-top: 4px;
     min-height: 16px;
+    color: var(--text-secondary);
 }
 
 .status-message.success {
@@ -186,43 +229,6 @@ html, body {
 
 .setting-item:last-child {
     margin-bottom: 0;
-}
-
-.setting-item label {
-    display: block;
-    margin-bottom: 4px;
-    font-size: 13px;
-    color: #495057;
-}
-
-input[type="range"] {
-    width: 100%;
-    margin: 8px 0;
-}
-
-
-
-.view.active {
-    display: flex;
-}
-
-.hidden {
-    display: none !important;
-}
-
-/* Note textarea */
-#note {
-    flex: 1;
-    width: 100%;
-    border: none;
-    padding: 12px;
-    resize: none;
-    outline: none;
-    background: transparent;
-    font-size: 14px;
-    line-height: 1.5;
-    color: #212529;
-    font-family: 'SF Mono', 'Roboto Mono', 'Courier New', monospace;
 }
 
 /* Chat Interface */
@@ -247,7 +253,7 @@ input[type="range"] {
 
 .user-message {
     align-self: flex-end;
-    background-color: #4a90e2;
+    background-color: var(--accent-color);
     color: white;
     border-radius: 12px;
     padding: 10px 14px;
@@ -257,36 +263,12 @@ input[type="range"] {
 
 .ai-message {
     align-self: flex-start;
-    background-color: #f0f0f0;
-    color: #333;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
     border-radius: 12px;
     padding: 10px 14px;
     margin-right: 20%;
     margin-left: 0;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .title-bar {
-        padding: 6px 8px;
-    }
-    
-    .drag-handle {
-        font-size: 12px;
-    }
-    
-    #note {
-        font-size: 16px;
-        padding: 10px;
-    }
-}
-
-/* Content area */
-.content {
-    margin-top: 40px; /* Match the height of the title bar */
-    height: calc(100% - 40px); /* Adjust height to account for title bar */
-    overflow: hidden;
-    display: flex;
 }
 
 /* Meet View Styles */
@@ -300,8 +282,8 @@ input[type="range"] {
 
 .meet-header {
     padding: 15px;
-    border-bottom: 1px solid #e9ecef;
-    background-color: #f8f9fa;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-secondary);
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
 }
@@ -317,7 +299,7 @@ input[type="range"] {
     justify-content: center;
     gap: 8px;
     padding: 8px 16px;
-    background-color: #4a90e2;
+    background-color: var(--accent-color);
     color: white;
     border: none;
     border-radius: 6px;
@@ -334,7 +316,7 @@ input[type="range"] {
 }
 
 .meet-toggle:not(:disabled):hover {
-    background-color: #3a7bc8;
+    background-color: var(--accent-hover);
 }
 
 .meet-toggle.stop-button {
@@ -355,7 +337,7 @@ input[type="range"] {
 .status-indicator {
     margin-left: 16px;
     font-size: 13px;
-    color: #6c757d;
+    color: var(--text-secondary);
 }
 
 #meets-chat-container {
@@ -367,14 +349,14 @@ input[type="range"] {
 .chat-input-container {
     display: flex;
     padding: 12px 16px;
-    border-top: 1px solid #e9ecef;
-    background-color: #f8f9fa;
+    border-top: 1px solid var(--border-color);
+    background-color: var(--bg-secondary);
 }
 
 #meets-chat-input {
     flex: 1;
     padding: 10px 12px;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     resize: none;
     font-family: inherit;
@@ -385,7 +367,7 @@ input[type="range"] {
 
 #meets-chat-input:focus {
     outline: none;
-    border-color: #4a90e2;
+    border-color: var(--accent-color);
     box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
 }
 
@@ -395,7 +377,7 @@ input[type="range"] {
     height: 40px;
     border: none;
     border-radius: 6px;
-    background-color: #4a90e2;
+    background-color: var(--accent-color);
     color: white;
     cursor: pointer;
     display: flex;
@@ -405,7 +387,7 @@ input[type="range"] {
 }
 
 .send-button:hover {
-    background-color: #3a7bc8;
+    background-color: var(--accent-hover);
 }
 
 .send-icon {
@@ -430,14 +412,14 @@ input[type="range"] {
 }
 
 .content-box {
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 5px;
     padding: 10px;
     flex-grow: 1;
     overflow-y: auto;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #333;
+    color: var(--text-primary);
 }
 
 .content-box p {
@@ -474,7 +456,6 @@ input[type="range"] {
     flex-direction: column;
     height: 100%;
 }
-
 
 /* Hide all views by default */
 #settings-view,
