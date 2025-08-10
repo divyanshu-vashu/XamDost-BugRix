@@ -247,41 +247,58 @@ ipcMain.handle('send-message-to-gemini', async (event, message) => {
   }
 });
 
-ipcMain.on('gemini-prompt', async (event, { view, prompt, sessionId }) => {
-  const isMeet = view === 'meets';
-  console.log(`[${new Date().toISOString()}] Gemini prompt received for ${view} view (${isMeet ? 'meet' : 'chat'})`);
+// Handle Gemini prompts - now only using meet chat for all requests
+ipcMain.on('gemini-prompt', async (event, { view, prompt, messageId }) => {
+  const logPrefix = `[${new Date().toISOString()}] [Message ${messageId}]`;
+  console.log(`${logPrefix} Gemini prompt received for ${view} view`);
   
   try {
+    // Input validation
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       throw new Error('Empty or invalid prompt');
     }
     
-    console.log(`[${new Date().toISOString()}] Sending to Gemini ${isMeet ? 'meet' : 'chat'}: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}"`);
+    // Log the outgoing message (truncated for logs)
+    const logMessage = prompt.length > 100 ? `${prompt.substring(0, 100)}...` : prompt;
+    console.log(`${logPrefix} Sending to Gemini: "${logMessage}"`);
     
+    // Track response time
     const startTime = Date.now();
-    const response = await geminiService.sendMessage(prompt, { isMeet });
+    
+    // Always use the meet chat instance
+    const response = await geminiService.sendMessage(prompt);
+    
     const responseTime = Date.now() - startTime;
+    console.log(`${logPrefix} Gemini response received in ${responseTime}ms`);
     
-    console.log(`[${new Date().toISOString()}] Gemini ${isMeet ? 'meet' : 'chat'} response received in ${responseTime}ms`);
-    
-    event.sender.send('gemini-response', { 
+    // Send the response back to the renderer
+    const responseData = { 
       view, 
       response,
-      sessionId,
+      messageId,
       timestamp: new Date().toISOString(),
       responseTime
-    });
+    };
+    
+    // Send both a broadcast and a targeted response
+    event.sender.send('gemini-response', responseData);
+    event.sender.send(`gemini-response-${messageId}`, responseData);
     
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error processing Gemini ${isMeet ? 'meet' : 'chat'} prompt:`, error);
+    console.error(`${logPrefix} Error processing Gemini prompt:`, error);
     
-    event.sender.send('gemini-response', { 
+    // Prepare error response
+    const errorData = { 
       view, 
-      response: `Error: ${error.message || 'Failed to process your request'}`, 
-      sessionId,
+      response: `Error: ${error.message || 'Failed to process your request. Please try again.'}`,
+      messageId,
       timestamp: new Date().toISOString(),
       error: true
-    });
+    };
+    
+    // Send both a broadcast and a targeted error response
+    event.sender.send('gemini-response', errorData);
+    event.sender.send(`gemini-response-${messageId}`, errorData);
   }
 });
 ipcMain.handle('set-gemini-api-key', async (event, apiKey) => {

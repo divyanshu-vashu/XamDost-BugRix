@@ -1,3 +1,4 @@
+
 // src/services/meets.js
 
 const { AssemblyAI } = require('assemblyai');
@@ -40,14 +41,33 @@ class MeetService extends EventEmitter {
             console.log('Already listening.');
             return;
         }
+        
+        // Reset session ID for new session
+        this.sessionId = `session_${Date.now()}`;
+        
         if (!this.assembly) {
-            this.emit('error', 'AssemblyAI is not initialized.');
-            return;
+            const error = new Error('AssemblyAI is not initialized');
+            this.emit('error', error.message);
+            throw error;
         }
-
+        
+        // Reset any existing state
         this.isListening = true;
         this.emit('status', 'connecting');
-        console.log('Starting transcription...');
+        console.log(`[${this.sessionId}] Starting transcription...`);
+        
+        // Initialize Gemini service if not already done
+        try {
+            // FIX: Changed from initializeAI() to the new initialize() method
+            await geminiService.initialize();
+        } catch (error) {
+            const errMsg = `Failed to initialize Gemini: ${error.message}`;
+            console.error(errMsg, error);
+            this.emit('error', errMsg);
+            this.isListening = false;
+            this.emit('status', 'error');
+            throw new Error(errMsg);
+        }
 
         try {
             this.transcriber = this.assembly.streaming.transcriber({
@@ -74,36 +94,71 @@ class MeetService extends EventEmitter {
                 this.emit('status', 'idle');
             });
 
-            // --- THE MAIN FIX ---
-            // Listen for 'turn' events and check for the end of an utterance.
+            // Listen for 'turn' events and check for the end of an utterance
             this.transcriber.on('turn', async (turn) => {
-                // For debugging, you can log every partial turn.
-                // if (turn.transcript) {
-                //     console.log("Partial Turn:", turn.transcript);
-                // }
+                // Skip if not a complete turn or no transcript
+                if (!turn.end_of_turn || !turn.turn_is_formatted || !turn.transcript?.trim()) {
+                    return;
+                }
 
-                // Process the turn only when it's considered complete.
-                if (turn.end_of_turn && turn.turn_is_formatted && turn.transcript && turn.transcript.trim()) {
-                    const transcriptText = turn.transcript.trim();
-                    console.log(`[FINALIZED TURN]:`, transcriptText);
+                const transcriptText = turn.transcript.trim();
+                console.log(`[FINALIZED TURN]: ${transcriptText.substring(0, 100)}${transcriptText.length > 100 ? '...' : ''}`);
+                
+                // Emit that we're processing the transcript
+                this.emit('status', 'processing_transcript');
+                
+                try {
+                    // Process with Gemini
+                    const response = await geminiService.sendMessage(transcriptText);
                     
-                    try {
-                        const response = await geminiService.sendMessage(transcriptText, { isMeet: true });
-                        this.emit('transcript', {
-                            message_type: 'FinalTranscript', // We keep this for consistency in the renderer
-                            text: transcriptText,
-                            response: response,
-                            sessionId: this.sessionId,
-                            timestamp: new Date().toISOString()
-                        });
-                        this.emit('status', 'transcript_processed');
-                    } catch (error) {
-                        console.error(`Error processing transcript with Gemini:`, error);
-                        this.emit('error', {
-                            message: 'Failed to process transcript with Gemini',
-                            error: error.message,
-                            timestamp: new Date().toISOString()
-                        });
+                    // The new geminiService returns null for empty responses, handle this case gracefully.
+                    if (response === null) {
+                        console.log('Gemini chose not to respond to the transcript. No action taken.');
+                        // We can either do nothing or send a specific status. Let's do nothing to keep the UI clean.
+                        return;
+                    }
+                    
+                    // Emit the successful response
+                    const transcriptData = {
+                        message_type: 'FinalTranscript',
+                        text: transcriptText,
+                        response: response,
+                        sessionId: this.sessionId,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    this.emit('transcript', transcriptData);
+                    this.emit('status', 'transcript_processed');
+                    
+                } catch (error) {
+                    console.error('Error processing transcript with Gemini:', error);
+                    
+                    // Format error response
+                    const errorMessage = error.message || 'Unknown error occurred';
+                    const errorData = {
+                        message: 'Failed to process transcript with Gemini',
+                        error: errorMessage,
+                        timestamp: new Date().toISOString(),
+                        sessionId: this.sessionId,
+                        isGeminiError: true
+                    };
+                    
+                    // Emit error event
+                    this.emit('error', errorData);
+                    
+                    // Also emit a transcript event with error info for the UI
+                    this.emit('transcript', {
+                        message_type: 'Error',
+                        text: transcriptText,
+                        response: `Error: ${errorMessage}`,
+                        sessionId: this.sessionId,
+                        timestamp: new Date().toISOString(),
+                        isError: true
+                    });
+                } finally {
+                    // Always ensure we're back to listening state after processing
+                    if (this.isListening) {
+                        this.emit('status', 'listening');
                     }
                 }
             });
@@ -145,29 +200,59 @@ class MeetService extends EventEmitter {
     }
 
     async stop() {
+        // If already stopped, do nothing
         if (!this.isListening && !this.recordingProcess && !this.transcriber) {
             return;
         }
         
-        console.log(`Stopping transcription...`);
-        this.isListening = false;
-
-        if (this.recordingProcess) {
-            this.recordingProcess.stop();
-            this.recordingProcess = null;
-        }
-
-        if (this.transcriber && this.transcriber.status !== 'closed') {
-            await this.transcriber.close();
-            this.transcriber = null;
-        }
-
-        this.emit('status', 'idle');
-        console.log(`Transcription service fully stopped`);
+        const sessionId = this.sessionId || 'unknown_session';
+        console.log(`[${sessionId}] Stopping transcription service...`);
         
+        // Update state immediately to prevent new processing
+        this.isListening = false;
+        
+        // Stop recording first
+        if (this.recordingProcess) {
+            try {
+                this.recordingProcess.stop();
+                console.log(`[${sessionId}] Audio recording stopped`);
+            } catch (error) {
+                console.error(`[${sessionId}] Error stopping recording:`, error);
+                this.emit('error', `Error stopping recording: ${error.message}`);
+            } finally {
+                this.recordingProcess = null;
+            }
+        }
+        
+        // Close the transcriber
+        if (this.transcriber && this.transcriber.status !== 'closed') {
+            try {
+                await this.transcriber.close();
+                console.log(`[${sessionId}] Transcriber connection closed`);
+            } catch (error)
+{
+                console.error(`[${sessionId}] Error closing transcriber:`, error);
+                this.emit('error', `Error closing transcriber: ${error.message}`);
+            } finally {
+                this.transcriber = null;
+            }
+        }
+        
+        // Clear any pending operations
+        if (this.sessionTimeout) {
+            clearTimeout(this.sessionTimeout);
+            this.sessionTimeout = null;
+        }
+        
+        // Emit final status
+        this.emit('status', 'idle');
+        console.log(`[${sessionId}] Transcription service fully stopped`);
+        
+        // Emit session ended event
         this.emit('session_ended', { 
-            sessionId: this.sessionId,
-            timestamp: new Date().toISOString() 
+            sessionId: sessionId,
+            timestamp: new Date().toISOString(),
+            endedAt: new Date().toISOString()
         });
     }
 }

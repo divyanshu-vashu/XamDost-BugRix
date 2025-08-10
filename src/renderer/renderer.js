@@ -6,12 +6,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // View Buttons
     const settingsBtn = document.getElementById('settings-btn');
-    const chatBtn = document.getElementById('chat-btn');
     const meetsBtn = document.getElementById('meets-btn');
 
     // Views
     const settingsView = document.getElementById('settings-view');
-    const chatView = document.getElementById('chat-view');
     const meetsView = document.getElementById('meets-view');
 
     // Settings Elements
@@ -24,11 +22,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const assemblyAiApiKeyInput = document.getElementById('assemblyai-api-key-input');
     const saveAssemblyAiApiKeyBtn = document.getElementById('save-assemblyai-api-key-btn');
     const assemblyAiApiKeyStatus = document.getElementById('assemblyai-api-key-status');
-
-    // Chat Elements
-    const chatInput = document.getElementById('chat-input');
-    const sendMessageBtn = document.getElementById('send-message');
-    const chatMessages = document.getElementById('chat-messages');
 
     // Meet Elements
     const meetStartButton = document.getElementById('meet-start-button');
@@ -73,6 +66,54 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Event Listeners ---
+    
+    // Listen for Gemini responses
+    ipcRenderer.on('gemini-response', (event, { response, error, view, messageId }) => {
+        if (view !== 'meets') return;
+        
+        console.log('Gemini response received in renderer:', {
+            messageId,
+            hasResponse: !!response,
+            responseType: typeof response,
+            preview: response ? String(response).substring(0, 100) + '...' : 'empty'
+        });
+        
+        // Remove typing indicator
+        const typingIndicator = document.querySelector('.typing-indicator');
+        if (typingIndicator && typingIndicator.parentElement) {
+            typingIndicator.parentElement.remove();
+        }
+        
+        try {
+            if (error) {
+                console.error('Error from Gemini:', error);
+                addMessage(`Error: ${error.message || 'Unknown error'}`, 'error', meetsChatContainer);
+            } else if (response) {
+                // Ensure response is a string
+                const responseText = typeof response === 'string' ? response : JSON.stringify(response);
+                console.log('Adding message to chat:', { length: responseText.length, preview: responseText.substring(0, 50) });
+                addMessage(responseText, 'ai', meetsChatContainer, true);
+            } else {
+                console.error('Empty response from Gemini');
+                addMessage('Error: Received empty response from Gemini', 'error', meetsChatContainer);
+            }
+        } catch (err) {
+            console.error('Error processing Gemini response:', err);
+            addMessage(`Error displaying response: ${err.message}`, 'error', meetsChatContainer);
+        }
+        
+        // Ensure scroll to bottom
+        meetsChatContainer.scrollTop = meetsChatContainer.scrollHeight;
+    });
+    
+    // Set up initial view
+    document.addEventListener('DOMContentLoaded', () => {
+        // Show meets view by default
+        switchView('meets');
+        
+        // Initialize API key status
+        checkGeminiStatus();
+    });
 
     // Meet Controls
     meetStartButton.addEventListener('click', () => {
@@ -85,7 +126,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // View Switching
     settingsBtn.addEventListener('click', () => switchView('settings'));
-    chatBtn.addEventListener('click', () => switchView('chat'));
     meetsBtn.addEventListener('click', () => switchView('meets'));
 
     // Settings
@@ -107,21 +147,71 @@ window.addEventListener('DOMContentLoaded', () => {
         updateApiKeyStatus(assemblyAiApiKeyStatus, success, 'AssemblyAI');
     });
 
-    // Chat
-    if (chatInput) {
-        chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendChatMessage();
-            }
-        });
-    }
-
-    if (sendMessageBtn) {
-        sendMessageBtn.addEventListener('click', sendChatMessage);
-    }
-
     // Meets Chat
+    function sendMeetsChatMessage() {
+        const message = meetsChatInput.value.trim();
+        if (!message) return;
+        
+        try {
+            // Add user message to chat
+            addMessage(message, 'user', meetsChatContainer);
+            
+            // Clear input and reset height
+            meetsChatInput.value = '';
+            meetsChatInput.style.height = 'auto';
+            
+            // Generate a unique ID for this message chain
+            const messageId = Date.now().toString();
+            
+            // Show typing indicator
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            typingIndicator.id = `typing-${messageId}`;
+            typingIndicator.innerHTML = `
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            `;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message ai-message';
+            messageElement.id = `message-${messageId}`;
+            messageElement.appendChild(typingIndicator);
+            meetsChatContainer.appendChild(messageElement);
+            meetsChatContainer.scrollTop = meetsChatContainer.scrollHeight;
+            
+            // Send message to main process
+            ipcRenderer.send('gemini-prompt', {
+                prompt: message,
+                view: 'meets',
+                messageId: messageId
+            });
+            
+            // Set a timeout to show a message if the response takes too long
+            const timeoutId = setTimeout(() => {
+                const indicator = document.getElementById(`typing-${messageId}`);
+                if (indicator && !indicator.querySelector('.typing-timeout')) {
+                    const timeoutMsg = document.createElement('div');
+                    timeoutMsg.className = 'typing-timeout';
+                    timeoutMsg.textContent = 'Getting response...';
+                    indicator.appendChild(timeoutMsg);
+                }
+            }, 5000); // Show after 5 seconds
+            
+            // Clean up timeout when response is received
+            const cleanup = () => {
+                clearTimeout(timeoutId);
+                ipcRenderer.off(`gemini-response-${messageId}`, cleanup);
+            };
+            
+            ipcRenderer.once(`gemini-response-${messageId}`, cleanup);
+            
+        } catch (error) {
+            console.error('Error sending message:', error);
+            addMessage('Failed to send message. Please try again.', 'error', meetsChatContainer);
+        }
+    }
+
     if (meetsChatInput) {
         meetsChatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -190,38 +280,34 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Handle Gemini responses for both chat and meet views
+    // Handle Gemini responses for meet view
     ipcRenderer.on('gemini-response', (event, { view, response, error, sessionId }) => {
         try {
             console.log(`[RENDERER] Received Gemini response payload:`, { view, response, error, sessionId });
 
-            const container = view === 'chat' ? chatMessages : meetsChatContainer;
-            if (!container) {
-                console.error(`[RENDERER] Container not found for view: ${view}`);
+            if (view !== 'meets') {
+                console.warn(`[RENDERER] Ignoring response for unsupported view: ${view}`);
                 return;
             }
 
             if (error) {
                 console.error('[RENDERER] Gemini API Error:', error);
-                addMessage(`Error: ${response || 'Failed to get response from Gemini'}`, 'error', container);
+                addMessage(`Error: ${response || 'Failed to get response from Gemini'}`, 'error', meetsChatContainer);
                 return;
             }
 
             if (!response) {
                 console.warn('[RENDERER] Empty response from Gemini');
-                addMessage('Received an empty response from Gemini.', 'ai', container);
+                addMessage('Received an empty response from Gemini.', 'ai', meetsChatContainer);
                 return;
             }
 
-            console.log(`[RENDERER] Adding AI response to ${container.id}:`, response);
-            addMessage(response, 'ai', container, true);
+            console.log(`[RENDERER] Adding AI response to meets chat`);
+            addMessage(response, 'ai', meetsChatContainer, true);
 
         } catch (e) {
             console.error('[RENDERER] Fatal error in gemini-response handler:', e);
-            const container = view === 'chat' ? chatMessages : meetsChatContainer;
-            if (container) {
-                addMessage(`Error displaying response: ${e.message}`, 'error', container);
-            }
+            addMessage(`Error displaying response: ${e.message}`, 'error', meetsChatContainer);
         }
     });
 
@@ -240,118 +326,179 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // --- Core Functions ---
     function switchView(viewName) {
+        // Hide all views
         document.querySelectorAll('.view').forEach(view => {
-            view.classList.remove('active');
             view.style.display = 'none';
         });
-        
-        document.querySelectorAll('.action-btn').forEach(btn => {
+
+        // Remove active class from all buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        
-        const view = document.getElementById(`${viewName}-view`);
-        const button = document.getElementById(`${viewName}-btn`);
-        
-        if (view) {
-            view.classList.add('active');
-            view.style.display = 'block';
-        }
-        if (button) {
-            button.classList.add('active');
-        }
-        
-        if (viewName === 'chat') {
-            setTimeout(() => {
-                const input = document.getElementById('chat-input');
-                if (input) input.focus();
-            }, 0);
-        } else if (viewName === 'meets') {
-            setTimeout(() => {
-                const input = document.getElementById('meets-chat-input');
-                if (input) input.focus();
-            }, 0);
+
+        // Show selected view and set active button
+        switch (viewName) {
+            case 'settings':
+                settingsView.style.display = 'block';
+                settingsBtn.classList.add('active');
+                document.title = 'BugRix - Settings';
+                break;
+            case 'meets':
+                meetsView.style.display = 'flex';
+                meetsBtn.classList.add('active');
+                document.title = 'BugRix - Meets';
+                // Focus the meets chat input when switching to meets view
+                if (meetsChatInput) {
+                    setTimeout(() => meetsChatInput.focus(), 100);
+                }
+                break;
         }
     }
 
-    function sendChatMessage() {
-        const message = chatInput.value.trim();
-        if (!message) return;
-
-        addMessage(message, 'user', chatMessages);
-        chatInput.value = '';
-        autoResizeTextarea(chatInput);
-
-        ipcRenderer.send('gemini-prompt', {
-            view: 'chat',
-            prompt: message,
-            sessionId: 'chat-session-' + Date.now()
-        });
-    }
-
-    function sendMeetsChatMessage() {
-        const message = meetsChatInput.value.trim();
-        if (!message) return;
-        
-        addMessage(message, 'user', meetsChatContainer);
-        meetsChatInput.value = '';
-        autoResizeTextarea(meetsChatInput);
-        
-        ipcRenderer.send('gemini-prompt', { 
-            view: 'meets',
-            prompt: message,
-            sessionId: 'meet-session-' + Date.now()
-        });
-    }
-
-    // --- Helper Functions ---
     function addMessage(text, type, container, isMarkdown = false) {
+        console.log(`addMessage called:`, { 
+            type, 
+            textLength: text?.length,
+            textPreview: text ? String(text).substring(0, 50) + '...' : 'undefined',
+            isMarkdown,
+            containerId: container?.id
+        });
+
         if (!container) {
             console.error('Cannot add message: Container is null or undefined');
-            return;
+            return null;
         }
         
+        // Ensure text is a non-empty string
+        if (text === null || text === undefined) {
+            console.warn('Received null/undefined text, converting to empty string');
+            text = '';
+        } else if (typeof text !== 'string') {
+            console.warn('Received non-string text, converting to string:', text);
+            text = String(text);
+        }
+        
+        // Create message container
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}-message`;
         
         try {
+            // Add timestamp
             const timestamp = new Date().toLocaleTimeString();
             const timestampSpan = document.createElement('span');
             timestampSpan.className = 'message-timestamp';
             timestampSpan.textContent = `[${timestamp}] `;
             messageDiv.appendChild(timestampSpan);
             
-            const contentSpan = document.createElement('span');
+            // Create content container
+            const contentSpan = document.createElement('div');
             contentSpan.className = 'message-content';
             
-            if (isMarkdown) {
-                contentSpan.innerHTML = renderMarkdown(text);
+            // Check if this looks like a code block or markdown
+            const isLikelyCode = text.trim().startsWith('```') || 
+                               (text.includes('\n') && text.trim().length > 0) || 
+                               (text.includes('  ') && text.trim().length > 0) ||
+                               (text.includes('{') && text.includes('}')) ||
+                               (text.includes('(') && text.includes(')') && text.includes(';'));
+            
+            // Always try to render as markdown if it's from AI or explicitly requested
+            if (isMarkdown || type === 'ai' || isLikelyCode) {
+                console.log('Rendering as markdown');
+                const rendered = renderMarkdown(text);
+                console.log('Rendered content:', { 
+                    originalLength: text.length, 
+                    renderedLength: rendered.length,
+                    preview: rendered.substring(0, 100) + '...'
+                });
+                contentSpan.innerHTML = rendered || '[Empty response]';
                 addCopyButtons(contentSpan);
             } else {
-                contentSpan.textContent = text;
+                console.log('Rendering as plain text');
+                // For plain text, preserve line breaks and basic formatting
+                const formattedText = text
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\n/g, '<br>');
+                contentSpan.innerHTML = formattedText || '[Empty message]';
             }
             
+            // Add to DOM
             messageDiv.appendChild(contentSpan);
             container.appendChild(messageDiv);
             
+            // Scroll to bottom and ensure message is visible
             container.scrollTop = container.scrollHeight;
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             
-            console.log(`Added ${type} message to ${container.id || 'unknown-container'}`);
+            console.log(`Successfully added ${type} message (${text.length} chars) to ${container.id || 'unknown-container'}`);
+            
         } catch (error) {
             console.error('Error adding message:', error);
-            messageDiv.textContent = text;
+            // Fallback to simple text display
+            messageDiv.textContent = `[Error displaying message: ${error.message}]\n${text || '[No message content]'}`;
             container.appendChild(messageDiv);
         }
+        
+        return messageDiv;
     }
 
     function renderMarkdown(text) {
-        if (typeof marked === 'undefined') return text;
-        const html = marked.parse(text);
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-        if (typeof hljs !== 'undefined') {
-            tempDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        if (!text) return '';
+    
+        // Ensure the 'marked' library is available
+        if (typeof marked === 'undefined') {
+            console.warn('marked.js is not available. Rendering as plain text.');
+            // Fallback to simple text with line breaks
+            return text.replace(/&/g, '&amp;')
+                       .replace(/</g, '&lt;')
+                       .replace(/>/g, '&gt;')
+                       .replace(/\n/g, '<br>');
         }
-        return tempDiv.innerHTML;
+    
+        try {
+            // Configure marked to use highlight.js for syntax highlighting
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    // Check if highlight.js and the language are available
+                    if (typeof hljs !== 'undefined') {
+                        const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                        try {
+                            // Return the highlighted code
+                            return hljs.highlight(code, { language, ignoreIllegals: true }).value;
+                        } catch (e) {
+                            // Fallback to auto-detection on error
+                            return hljs.highlightAuto(code).value;
+                        }
+                    }
+                    // If hljs is not available, return the code un-highlighted but escaped
+                    return code;
+                },
+                breaks: true, // Render line breaks as <br>
+                gfm: true     // Enable GitHub Flavored Markdown
+            });
+    
+            // Let marked.js parse the entire text. It will correctly identify and
+            // process paragraphs, lists, and code blocks according to markdown rules.
+            const html = marked.parse(text);
+
+            // Marked's highlight callback should handle all cases, but as a safety net,
+            // we can manually highlight any code blocks that might have been missed.
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            if (typeof hljs !== 'undefined') {
+                tempDiv.querySelectorAll('pre code:not(.hljs)').forEach(block => {
+                    hljs.highlightElement(block);
+                });
+            }
+
+            return tempDiv.innerHTML;
+    
+        } catch (error) {
+            console.error('Error rendering markdown:', error);
+            // In case of a parsing error, fallback to displaying the raw text safely
+            return `<pre><code>${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+        }
     }
 
     function addCopyButtons(container) {

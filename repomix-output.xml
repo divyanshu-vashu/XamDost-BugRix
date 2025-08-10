@@ -53,7 +53,6 @@ src/
     styles.css
   services/
     gemini.js
-    meets_dump.txt
     meets.js
     prompt.js
   main.js
@@ -68,521 +67,6 @@ package.json
 
 <files>
 This section contains the contents of the repository's files.
-
-<file path="src/services/meets_dump.txt">
-// src/services/meets.js
-
-// const { AssemblyAI } = require('assemblyai');
-// const { EventEmitter } = require('events');
-// const { Readable } = require('stream');
-// const recorder = require('node-record-lpcm16');
-
-// class MeetService extends EventEmitter {
-//     constructor() {
-//         super();
-//         this.assembly = null;
-//         this.transcriber = null;
-//         this.recordingProcess = null;
-//         this.isListening = false;
-//         this.sessionId = null;
-        
-//         // Bind methods to maintain 'this' context
-//         this.handleTranscriberOpen = this.handleTranscriberOpen.bind(this);
-//         this.handleTranscriberError = this.handleTranscriberError.bind(this);
-//         this.handleTranscriberClose = this.handleTranscriberClose.bind(this);
-//         this.handleTranscript = this.handleTranscript.bind(this);
-//     }
-
-//     init(apiKey) {
-//         if (!apiKey) {
-//             const errorMsg = 'AssemblyAI API key is not set.';
-//             console.error(errorMsg);
-//             this.emit('error', errorMsg);
-//             return false;
-//         }
-//         try {
-//             this.assembly = new AssemblyAI({ apiKey });
-//             console.log('MeetService initialized with AssemblyAI key.');
-//             return true;
-//         } catch (error) {
-//             console.error('Failed to initialize AssemblyAI:', error);
-//             this.emit('error', `Failed to initialize AssemblyAI: ${error.message}`);
-//             return false;
-//         }
-//     }
-
-//     // Helper method to handle transcriber events
-//     setupTranscriberHandlers() {
-//         this.transcriber.on('open', this.handleTranscriberOpen);
-//         this.transcriber.on('error', this.handleTranscriberError);
-//         this.transcriber.on('close', this.handleTranscriberClose);
-//         this.transcriber.on('transcript', this.handleTranscript);
-//         this.transcriber.on('session_information', (info) => {
-//             console.log('Session information:', info);
-//         });
-//         this.transcriber.on('transcript.final', this.handleTranscript);
-//     }
-
-//     // Handle transcriber open event
-//     handleTranscriberOpen({ sessionId }) {
-//         this.sessionId = sessionId;
-//         console.log(`[${new Date().toISOString()}] Session opened with ID:`, sessionId);
-//         this.emit('status', 'listening');
-//         this.emit('session-started', { sessionId });
-//     }
-
-//     // Handle transcriber errors
-//     handleTranscriberError(error) {
-//         console.error(`[${new Date().toISOString()}] Transcriber Error:`, error);
-//         this.emit('error', error.message || 'Unknown transcriber error');
-//         this.stop().catch(console.error);
-//     }
-
-//     // Handle transcriber close event
-//     handleTranscriberClose(code, reason) {
-//         console.log(`[${new Date().toISOString()}] Session closed - Code: ${code}, Reason: ${reason}`);
-//         this.emit('status', 'idle');
-//         this.emit('session-ended', { code, reason });
-//     }
-
-//     // Handle transcript data
-//     handleTranscript(transcript) {
-//         console.log(`[${new Date().toISOString()}] Transcript:`, JSON.stringify(transcript, null, 2));
-//         if (transcript.text) {
-//             this.emit('transcript', { 
-//                 message_type: 'FinalTranscript', 
-//                 text: transcript.text,
-//                 sessionId: this.sessionId,
-//                 timestamp: new Date().toISOString()
-//             });
-//         }
-//     }
-
-//     async start() {
-//         if (this.isListening) {
-//             console.log('[MeetService] Already listening.');
-//             return;
-//         }
-
-//         if (!this.assembly) {
-//             const errorMsg = 'AssemblyAI is not initialized. Call init(apiKey) first.';
-//             console.error('[MeetService]', errorMsg);
-//             this.emit('error', errorMsg);
-//             return;
-//         }
-
-//         this.isListening = true;
-//         this.sessionId = null;
-//         this.emit('status', 'connecting');
-//         console.log('[MeetService] Starting transcription service...');
-
-//         try {
-//             // Initialize the streaming transcriber
-//             this.transcriber = this.assembly.streaming.transcriber({
-//                 sampleRate: 16000,
-//                 wordBoost: ['AssemblyAI', 'Node.js', 'JavaScript'], // Optional: boost specific words
-//                 encoding: 'pcm_s16le',
-//                 channels: 1,
-//                 end_utterance_silence_threshold: 500, // ms of silence to detect end of utterance
-//                 disable_partial_results: false, // Get partial results
-//                 punctuate: true,
-//                 format_text: true
-//             });
-
-//             console.log('[MeetService] Transcriber initialized, setting up event handlers...');
-//             this.setupTranscriberHandlers();
-
-//             // Connect to the service
-//             console.log('[MeetService] Connecting to AssemblyAI...');
-//             await this.transcriber.connect();
-//             console.log('[MeetService] Connected to AssemblyAI, starting audio capture...');
-
-//             // Start recording using node-record-lpcm16
-//             const recordOptions = {
-//                 sampleRate: 16000,
-//                 channels: 1,
-//                 threshold: 0.5, // Silence threshold (0 to 1)
-//                 recordProgram: 'sox', // Try 'rec' or 'arecord' if 'sox' doesn't work
-//                 verbose: true,
-//                 silence: '5.0', // Seconds of silence before ending
-//                 device: null // Use default device
-//             };
-
-//             console.log('[MeetService] Starting audio recording with options:', JSON.stringify(recordOptions, null, 2));
-            
-//             this.recordingProcess = recorder.record(recordOptions);
-            
-//             // Log recording process events
-//             this.recordingProcess.stream().on('error', (error) => {
-//                 console.error('[MeetService] Recording error:', error);
-//                 this.emit('error', `Recording error: ${error.message}`);
-//                 this.stop().catch(console.error);
-//             });
-
-//             // Pipe the audio stream to the transcriber
-//             const audioStream = Readable.toWeb(this.recordingProcess.stream());
-//             await audioStream.pipeTo(this.transcriber.stream());
-            
-//             console.log('[MeetService] Audio stream successfully piped to transcriber');
-
-//         } catch (error) {
-//             console.error('Error starting transcription:', error);
-//             this.emit('error', `Error starting transcription: ${error.message}`);
-//             this.stop();
-//         }
-//     }
-
-//     async stop() {
-//         if (!this.isListening && !this.transcriber) {
-//             console.log('[MeetService] Not currently listening, nothing to stop');
-//             return;
-//         }
-
-//         console.log('[MeetService] Stopping transcription service...');
-//         this.isListening = false;
-
-//         try {
-//             // Stop the recording process first
-//             if (this.recordingProcess) {
-//                 console.log('[MeetService] Stopping audio recording...');
-//                 return new Promise((resolve) => {
-//                     this.recordingProcess.stop();
-//                     this.recordingProcess = null;
-//                     console.log('[MeetService] Audio recording stopped');
-//                     resolve();
-//                 });
-//             }
-//         } catch (error) {
-//             console.error('[MeetService] Error stopping recording:', error);
-//         }
-
-//         try {
-//             // Then close the transcriber connection
-//             if (this.transcriber) {
-//                 console.log('[MeetService] Closing transcriber connection...');
-//                 await this.transcriber.close();
-//                 this.transcriber = null;
-//                 console.log('[MeetService] Transcriber connection closed');
-//             }
-//         } catch (error) {
-//             console.error('[MeetService] Error closing transcriber:', error);
-//         } finally {
-//             this.emit('status', 'idle');
-//             console.log('[MeetService] Transcription service fully stopped');
-//         }
-//     }
-// }
-
-// module.exports = MeetService;
-</file>
-
-<file path="src/services/meets.js">
-// src/services/meets.js
-
-const { AssemblyAI } = require('assemblyai');
-const recorder = require('node-record-lpcm16');
-const { Readable } = require('stream');
-const { v4: uuidv4 } = require('uuid');
-const Store = require('electron-store');
-const EventEmitter = require('events');
-const geminiService = require('./gemini');
-
-const store = new Store();
-
-class MeetService extends EventEmitter {
-    constructor() {
-        super();
-        this.assembly = null;
-        this.transcriber = null;
-        this.recordingProcess = null;
-        this.isListening = false;
-        this.sessionId = null;
-    }
-
-    init(apiKey) {
-        if (!apiKey) {
-            this.emit('error', 'AssemblyAI API key is not set.');
-            return false;
-        }
-        try {
-            this.assembly = new AssemblyAI({ apiKey });
-            console.log('MeetService initialized with AssemblyAI key.');
-            return true;
-        } catch (error) {
-            this.emit('error', `Failed to initialize AssemblyAI: ${error.message}`);
-            return false;
-        }
-    }
-
-    async start() {
-        if (this.isListening) {
-            console.log('Already listening.');
-            return;
-        }
-        if (!this.assembly) {
-            this.emit('error', 'AssemblyAI is not initialized.');
-            return;
-        }
-
-        this.isListening = true;
-        this.emit('status', 'connecting');
-        console.log('Starting transcription using the example configuration...');
-
-        try {
-            this.transcriber = this.assembly.streaming.transcriber({
-                sampleRate: 16_000,
-            });
-
-            // --- Event Handlers ---
-            this.transcriber.on('open', ({ sessionId }) => {
-                this.sessionId = sessionId || uuidv4();
-                console.log(`Session opened with ID: ${this.sessionId}`);
-                this.emit('status', 'listening');
-            });
-
-            this.transcriber.on('error', (error) => {
-                console.error('Transcriber Error:', error);
-                this.emit('error', error.message);
-                this.stop();
-            });
-
-            this.transcriber.on('close', (code, reason) => {
-                console.log('Session closed:', code, reason);
-                this.emit('status', 'idle');
-            });
-
-            // This handles the transcript and sends it to your app's Gemini flow
-            this.transcriber.on('transcript.final', async (turn) => {
-                if (turn.text && turn.text.trim()) {
-                    const transcriptText = turn.text.trim();
-                    console.log(`[${new Date().toISOString()}] [Session ${this.sessionId}] Transcript:`, transcriptText);
-                    
-                    try {
-                        // Get Gemini response for the transcript
-                        const response = await geminiService.sendMessage(transcriptText, { isMeet: true });
-                        
-                        // Emit the transcript event to the main process
-                        this.emit('transcript', {
-                            message_type: 'FinalTranscript',
-                            text: transcriptText,
-                            response: response,
-                            sessionId: this.sessionId,
-                            timestamp: new Date().toISOString()
-                        });
-                        
-                        // Also emit a status update
-                        this.emit('status', 'transcript_processed');
-                    } catch (error) {
-                        console.error(`[${new Date().toISOString()}] Error processing transcript with Gemini:`, error);
-                        this.emit('error', {
-                            message: 'Failed to process transcript with Gemini',
-                            error: error.message,
-                            timestamp: new Date().toISOString()
-                        });
-                    }
-                }
-            });
-
-            // --- Connect and Record ---
-            console.log(`[${new Date().toISOString()}] Connecting to AssemblyAI...`);
-            await this.transcriber.connect();
-            console.log(`[${new Date().toISOString()}] Connected to AssemblyAI. Starting local recording...`);
-
-            // Configure audio recording
-            const recordConfig = {
-                channels: 1,
-                sampleRate: 16000,
-                audioType: 'wav',
-                verbose: true,
-                threshold: 0.5, // Silence threshold
-                silence: '1.0'  // Seconds of silence before ending
-            };
-            
-            console.log(`[${new Date().toISOString()}] Starting audio recording with config:`, recordConfig);
-            
-            try {
-                this.recordingProcess = recorder.record(recordConfig);
-                console.log(`[${new Date().toISOString()}] Audio recording started successfully`);
-            } catch (error) {
-                console.error(`[${new Date().toISOString()}] Failed to start recording:`, error);
-                throw new Error(`Failed to start recording: ${error.message}`);
-            }
-            
-            if (!this.recordingProcess) {
-                throw new Error("Failed to start recording. No recording process was created.");
-            }
-
-            // Handle recording stream errors
-            const audioStream = this.recordingProcess.stream();
-            audioStream.on('error', (err) => {
-                console.error(`[${new Date().toISOString()}] Recording stream error:`, err);
-                this.emit('error', `Recording stream error: ${err.message}`);
-                this.stop().catch(console.error);
-            });
-
-            // Pipe audio to AssemblyAI
-            console.log(`[${new Date().toISOString()}] Piping audio stream to AssemblyAI...`);
-            try {
-                const webStream = Readable.toWeb(audioStream);
-                await webStream.pipeTo(this.transcriber.stream());
-                console.log(`[${new Date().toISOString()}] Audio stream piping completed`);
-            } catch (error) {
-                console.error(`[${new Date().toISOString()}] Error piping audio stream:`, error);
-                this.emit('error', `Stream piping error: ${error.message}`);
-                await this.stop();
-            }
-
-        } catch (error) {
-            console.error('Error in start method:', error);
-            this.emit('error', `Start Error: ${error.message}`);
-            this.stop();
-        }
-    }
-
-    async stop() {
-        if (!this.isListening && !this.recordingProcess && !this.transcriber) {
-            console.log(`[${new Date().toISOString()}] No active transcription to stop`);
-            return;
-        }
-        
-        console.log(`[${new Date().toISOString()}] Stopping transcription...`);
-        this.isListening = false;
-
-        try {
-            // Stop the recording process first
-            if (this.recordingProcess) {
-                console.log(`[${new Date().toISOString()}] Stopping audio recording...`);
-                await new Promise((resolve) => {
-                    this.recordingProcess.stop();
-                    this.recordingProcess = null;
-                    console.log(`[${new Date().toISOString()}] Audio recording stopped`);
-                    resolve();
-                });
-            }
-        } catch (error) {
-            console.error(`[${new Date().toISOString()}] Error stopping recording:`, error);
-        }
-
-        try {
-            // Then close the transcriber connection
-            if (this.transcriber) {
-                console.log(`[${new Date().toISOString()}] Closing transcriber connection...`);
-                await this.transcriber.close();
-                this.transcriber = null;
-                console.log(`[${new Date().toISOString()}] Transcriber connection closed`);
-            }
-        } catch (error) {
-            console.error(`[${new Date().toISOString()}] Error closing transcriber:`, error);
-        }
-
-        this.emit('status', 'idle');
-        console.log(`[${new Date().toISOString()}] Transcription service fully stopped`);
-        
-        // Emit session end event
-        this.emit('session_ended', { 
-            sessionId: this.sessionId,
-            timestamp: new Date().toISOString() 
-        });
-    }
-}
-
-module.exports = MeetService;
-</file>
-
-<file path="src/services/prompt.js">
-export const meetPrompt = `
-
-<core_identity>
-You are an assistant called Xamdost, developed and created by Xamdost, whose sole purpose is to analyze and solve problems asked by the user on the screen. Your responses must be specific, accurate, and actionable.
-</core_identity>
-
-<general_guidelines>
-- NEVER use meta-phrases (e.g., "let me help you", "I can see that").
-- NEVER summarize unless explicitly requested.
-- NEVER provide unsolicited advice.
-- ALWAYS be specific, detailed, and accurate.
-- ALWAYS acknowledge uncertainty when present.
-- ALWAYS use markdown formatting.
-- **All math must be rendered using LaTeX**: use $...$ for in-line and $$...$$ for multi-line math. Dollar signs used for money must be escaped (e.g., \\$100).
-- If asked what model is running or powering you or who you are, respond: "I am Xamdost powered by a collection of LLM providers". NEVER mention the specific LLM providers or say that Xamdost is the AI itself.
-- If user intent is unclear — even with many visible elements — do NOT offer solutions or organizational suggestions. Only acknowledge ambiguity and offer a clearly labeled guess if appropriate.
-</general_guidelines>
-
-<technical_problems>
-- START IMMEDIATELY WITH THE SOLUTION CODE – ZERO INTRODUCTORY TEXT.
-- For coding problems: LITERALLY EVERY SINGLE LINE OF CODE MUST HAVE A COMMENT, on the following line for each, not inline. NO LINE WITHOUT A COMMENT.
-- For general technical concepts: START with direct answer immediately.
-- After the solution, provide a detailed markdown section (ex. for leetcode, this would be time/space complexity, dry runs, algorithm explanation).
-</technical_problems>
-
-<math_problems>
-- Start immediately with your confident answer if you know it.
-- Show step-by-step reasoning with formulas and concepts used.
-- **All math must be rendered using LaTeX**: use $...$ for in-line and $$...$$ for multi-line math. Dollar signs used for money must be escaped (e.g., \\$100).
-- End with **FINAL ANSWER** in bold.
-- Include a **DOUBLE-CHECK** section for verification.
-</math_problems>
-
-<multiple_choice_questions>
-- Start with the answer.
-- Then explain:
-- Why it's correct
-- Why the other options are incorrect
-</multiple_choice_questions>
-
-<emails_messages>
-- Provide mainly the response if there is an email/message/ANYTHING else to respond to / text to generate, in a code block.
-- Do NOT ask for clarification – draft a reasonable response.
-- Format: \`\`\`
-[Your email response here]
-</emails_messages>
-
-<ui_navigation>
-- Provide EXTREMELY detailed step-by-step instructions with granular specificity.
-- For each step, specify:
-- Exact button/menu names (use quotes)
-- Precise location ("top-right corner", "left sidebar", "bottom panel")
-- Visual identifiers (icons, colors, relative position)
-- What happens after each click
-- Do NOT mention screenshots or offer further help.
-- Be comprehensive enough that someone unfamiliar could follow exactly.
-</ui_navigation>
-
-<unclear_or_empty_screen>
-- MUST START WITH EXACTLY: "I'm not sure what information you're looking for." (one sentence only)
-- Draw a horizontal line: ---
-- Provide a brief suggestion, explicitly stating "My guess is that you might want..."
-- Keep the guess focused and specific.
-- If intent is unclear — even with many elements — do NOT offer advice or solutions.
-- It's CRITICAL you enter this mode when you are not 90%+ confident what the correct action is.
-</unclear_or_empty_screen>
-
-<other_content>
-- If there is NO explicit user question or dialogue, and the screen shows any interface, treat it as **unclear intent**.
-- Do NOT provide unsolicited instructions or advice.
-- If intent is unclear:
-- Start with EXACTLY: "I'm not sure what information you're looking for."
-- Draw a horizontal line: ---
-- Follow with: "My guess is that you might want [specific guess]."
-- If content is clear (you are 90%+ confident it is clear):
-- Start with the direct answer immediately.
-- Provide detailed explanation using markdown formatting.
-- Keep response focused and relevant to the specific question.
-</other_content>
-
-<response_quality_requirements>
-- Be thorough and comprehensive in technical explanations.
-- Ensure all instructions are unambiguous and actionable.
-- Provide sufficient detail that responses are immediately useful.
-- Maintain consistent formatting throughout.
-- **You MUST NEVER just summarize what's on the screen** unless you are explicitly asked to
-</response_quality_requirements>
-
-
-
-
-`
-</file>
 
 <file path="assembly.js">
 const { Readable } = require('stream')
@@ -682,6 +166,116 @@ SOFTWARE.
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 48 48" height="48" width="48"><defs><linearGradient id="a" x1="3.2173" y1="15" x2="44.7812" y2="15" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#d93025"/><stop offset="1" stop-color="#ea4335"/></linearGradient><linearGradient id="b" x1="20.7219" y1="47.6791" x2="41.5039" y2="11.6837" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fcc934"/><stop offset="1" stop-color="#fbbc04"/></linearGradient><linearGradient id="c" x1="26.5981" y1="46.5015" x2="5.8161" y2="10.506" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1e8e3e"/><stop offset="1" stop-color="#34a853"/></linearGradient></defs><circle cx="24" cy="23.9947" r="12" style="fill:#fff"/><path d="M3.2154,36A24,24,0,1,0,12,3.2154,24,24,0,0,0,3.2154,36ZM34.3923,18A12,12,0,1,1,18,13.6077,12,12,0,0,1,34.3923,18Z" style="fill:none"/><path d="M24,12H44.7812a23.9939,23.9939,0,0,0-41.5639.0029L13.6079,30l.0093-.0024A11.9852,11.9852,0,0,1,24,12Z" style="fill:url(#a)"/><circle cx="24" cy="24" r="9.5" style="fill:#1a73e8"/><path d="M34.3913,30.0029,24.0007,48A23.994,23.994,0,0,0,44.78,12.0031H23.9989l-.0025.0093A11.985,11.985,0,0,1,34.3913,30.0029Z" style="fill:url(#b)"/><path d="M13.6086,30.0031,3.218,12.006A23.994,23.994,0,0,0,24.0025,48L34.3931,30.0029l-.0067-.0068a11.9852,11.9852,0,0,1-20.7778.007Z" style="fill:url(#c)"/></svg>
 </file>
 
+<file path="src/services/prompt.js">
+export const meetPrompt = `
+<core_identity>
+You are "Xamdost," an AI-powered pair-programming assistant for technical interviews. Your purpose is to help the user structure their thoughts, identify key concepts, and refine their answers in real-time. You are a navigator, not the driver. You provide hints, frameworks, and suggestions, but you DO NOT give the final answer directly unless explicitly asked for a full solution.
+</core_identity>
+
+<mode_of_operation>
+The user is in a live technical interview. They will speak their thoughts aloud, and you will analyze their speech. Your role is to act as a silent partner, providing concise, actionable feedback in the chat window.
+
+- **For Behavioral Questions ("Tell me about a time..."):**
+  - Listen for the user's story.
+  - Your response should provide a concise framework to improve their answer.
+  - Suggest the STAR (Situation, Task, Action, Result) or a similar method.
+  - Point out if they missed a key part, like quantifying the 'Result'.
+  - Example Response: "Structure this with STAR. You've covered S and T well. Focus on specific Actions you took and quantify the Result (e.g., 'improved performance by 20%')."
+
+- **For System Design Questions ("Design a system like Twitter..."):**
+  - Listen for the user's initial thoughts.
+  - Your first response should be a standard system design framework.
+  - Framework Suggestion: 
+    \`\`\`
+    **System Design Checklist:**
+    1.  **Requirements:** Clarify functional & non-functional (scope, scale, latency).
+    2.  **API Design:** Define the core API endpoints (e.g., postTweet, getTimeline).
+    3.  **Data Model:** Sketch the DB schema (Users, Tweets, Follows).
+    4.  **High-Level Design:** Draw the architecture (Load Balancer, Web Servers, DBs, Caches).
+    5.  **Deep Dive:** Focus on a specific component (e.g., News Feed, Scaling the DB).
+    6.  **Bottlenecks:** Identify and address potential bottlenecks.
+    \`\`\`
+
+- **For Coding Problems (LeetCode style):**
+  - **Initial Thought Process:** If the user is just talking through the problem, provide hints.
+    - "Consider edge cases: empty array, single element."
+    - "This sounds like it could be a two-pointer problem. Have you considered that approach?"
+    - "What's the time/space complexity of your current idea? Can we do better?"
+  - **If the user asks for a solution:** Provide the full code, but it MUST follow these strict rules:
+    - START IMMEDIATELY WITH THE SOLUTION CODE – ZERO INTRODUCTORY TEXT.
+    - LITERALLY EVERY SINGLE LINE OF CODE MUST HAVE A COMMENT, on the following line for each, not inline. NO LINE WITHOUT A COMMENT.
+    - After the code, provide a detailed markdown section explaining the Time/Space Complexity, Algorithm, and a quick Dry Run.
+
+- **For General Technical Concepts ("Explain closures in JavaScript..."):**
+  - Provide a concise, accurate definition first.
+  - Follow up with a simple, clear code example.
+  - End with a one-sentence "key takeaway."
+</mode_of_operation>
+
+<general_guidelines>
+- NEVER use meta-phrases (e.g., "Certainly, I can help with that"). Go straight to the point.
+- ALWAYS be concise. The user is in a high-pressure situation and needs quick, scannable information.
+- Use Markdown (bolding, lists, code blocks) to make responses easy to read.
+- If asked who you are, respond: "I am Xamdost, your interview assistant."
+- If the user's speech is unclear or just filler words ("um, ah, let's see"), DO NOT RESPOND. Wait for a substantive statement or question.
+</general_guidelines>
+`;
+</file>
+
+<file path=".repomixignore">
+Doc
+Doc/
+</file>
+
+<file path="forge.config.js">
+const { FusesPlugin } = require('@electron-forge/plugin-fuses');
+const path = require('path');
+const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+
+module.exports = {
+  packagerConfig: {
+    asar: true,
+    icon: path.join(__dirname, 'src/media/chrome'), // Forge will automatically use .icns for macOS and .ico for Windows
+  },
+  rebuildConfig: {},
+  makers: [
+    {
+      name: '@electron-forge/maker-squirrel',
+      config: {},
+    },
+    {
+      name: '@electron-forge/maker-zip',
+      platforms: ['darwin'],
+    },
+    {
+      name: '@electron-forge/maker-deb',
+      config: {},
+    },
+    {
+      name: '@electron-forge/maker-rpm',
+      config: {},
+    },
+  ],
+  plugins: [
+    {
+      name: '@electron-forge/plugin-auto-unpack-natives',
+      config: {},
+    },
+    // Fuses are used to enable/disable various Electron functionality
+    // at package time, before code signing the application
+    new FusesPlugin({
+      version: FuseVersion.V1,
+      [FuseV1Options.RunAsNode]: false,
+      [FuseV1Options.EnableCookieEncryption]: true,
+      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+      [FuseV1Options.EnableNodeCliInspectArguments]: false,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+    }),
+  ],
+};
+</file>
+
 <file path="src/renderer/styles.css">
 /* Basic reset */
 * {
@@ -721,19 +315,29 @@ html, body {
     right: 0;
     bottom: 0;
     background-color: rgba(255, 255, 255, 0.95);
-    border-radius: 8px;
+    border-radius: 0 0 8px 8px; /* Only round bottom corners */
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    pointer-events: auto; /* Re-enable clicks for the app container and its children */
+    pointer-events: auto;
+    height: 100vh;
 }
 
-/* 
-  FIX #3: THE DRAGGABLE TITLE BAR PROBLEM
-  This is the most critical fix. The title-bar is draggable,
-  but everything inside it must be marked as non-draggable to be clickable.
-*/
+/* Window controls spacer for macOS traffic lights */
+.window-controls-spacer {
+    height: 28px; /* Height of macOS traffic lights */
+    -webkit-app-region: drag;
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1001;
+    background: transparent;
+}
+
+/* Title bar styling */
 .title-bar {
     -webkit-app-region: drag;
     height: 40px;
@@ -742,11 +346,10 @@ html, body {
     display: flex;
     align-items: center;
     padding: 0 15px;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    position: relative;
     z-index: 1000;
+    flex-shrink: 0;
+    margin-top: 28px; /* Match the height of window-controls-spacer */
 }
 
 .title-bar-left {
@@ -756,9 +359,10 @@ html, body {
 }
 
 .app-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: #333;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    margin-right: 10px;
     -webkit-app-region: drag; /* Allow dragging by the title text itself */
 }
 
@@ -770,19 +374,23 @@ html, body {
 }
 
 .action-btn {
-    -webkit-app-region: no-drag; /* MAKE EACH BUTTON EXPLICITLY NON-DRAGGABLE */
-    background: none;
-    border: none;
-    color: #666;
-    font-size: 14px;
-    padding: 4px 8px;
-    border-radius: 4px;
+    -webkit-app-region: no-drag;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: 16px;
     cursor: pointer;
     transition: all 0.2s ease;
-    margin: 0 5px;
+    margin: 0 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .action-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
     background-color: rgba(0, 0, 0, 0.05);
 }
 
@@ -920,86 +528,20 @@ input[type="range"] {
     align-self: flex-end;
     background-color: #4a90e2;
     color: white;
-    border-bottom-right-radius: 4px;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-left: 20%;
+    margin-right: 0;
 }
 
 .ai-message {
     align-self: flex-start;
     background-color: #f0f0f0;
     color: #333;
-    border-bottom-left-radius: 4px;
-}
-
-.chat-input-container {
-    display: flex;
-    padding: 12px;
-    border-top: 1px solid #e9ecef;
-    gap: 8px;
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: #f5f5f5;
-}
-
-#chat-input {
-    flex: 1;
-    padding: 8px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    resize: none;
-    max-height: 120px;
-    font-family: inherit;
-    font-size: 14px;
-}
-
-#chat-view .meet-controls {
-    display: none;
-}
-
-#chat-input:focus {
-    outline: none;
-    border-color: #4a90e2;
-    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
-}
-
-#send-message {
-    padding: 0 16px;
-    background-color: #4a90e2;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-}
-
-#send-message:hover {
-    background-color: #3a7bc8;
-}
-
-#send-message:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-}
-
-/* Always on top button */
-#always-on-top-btn {
-    background: #e9ecef;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.2s;
-    width: 100%;
-}
-
-#always-on-top-btn:hover {
-    background: #dee2e6;
-}
-
-input, textarea, button {
-    pointer-events: auto;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-right: 20%;
+    margin-left: 0;
 }
 
 /* Responsive adjustments */
@@ -1036,11 +578,11 @@ input, textarea, button {
 }
 
 .meet-header {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
+    padding: 15px;
     border-bottom: 1px solid #e9ecef;
     background-color: #f8f9fa;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
 }
 
 .meet-controls {
@@ -1200,9 +742,16 @@ input, textarea, button {
 
 /* Make sure only one view is visible at a time */
 #settings-view.active ~ #chat-view:not(.active) ~ #meets-view:not(.active),
-#chat-view.active ~ #settings-view:not(.active) ~ #meets-view:not(.active),
-#meets-view.active ~ #settings-view:not(.active) ~ #chat-view:not(.active) {
+/* View switching */
+#settings-view:not(.active),
+#chat-view {
     display: none;
+}
+
+#meets-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 
@@ -1227,9 +776,34 @@ input, textarea, button {
     pointer-events: auto;
 }
 
-/* Hide the meet controls in chat view */
-#chat-view .meet-controls {
+/* Hide the chat view completely */
+#chat-view {
     display: none !important;
+}
+
+/* Typing indicator */
+.typing-indicator {
+    display: flex;
+    gap: 6px;
+    padding: 8px 0;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #666;
+    border-radius: 50%;
+    display: inline-block;
+    animation: typingAnimation 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) { animation-delay: 0s; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingAnimation {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-5px); }
 }
 </file>
 
@@ -1239,127 +813,328 @@ const Store = require('electron-store');
 const store = new Store();
 const { meetPrompt } = require('./prompt');
 
+// Configuration constants
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+const DEFAULT_MAX_TOKENS = 2000;
+const MODEL_NAME = 'gemini-2.5-flash';
+
 class GeminiService {
   constructor() {
-    this.chat = null;
-    this.meetChat = null;
     this.genAI = null;
     this.model = null;
-    this.initializeAI();
+    this.meetChat = null;
+    this.isInitialized = false;
+    this.initializationPromise = null;
+    
+    // Initialize on creation
+    this.initialize().catch(error => {
+      console.error('Initial Gemini initialization failed:', error);
+    });
   }
 
-  initializeAI() {
-    const apiKey = store.get('geminiApiKey');
-    if (!apiKey) {
-      this.isInitialized = false;
-      return;
+  /**
+   * Main initialization method that sets up the Gemini AI client and chat
+   */
+  async initialize() {
+    if (this.initializationPromise) {
+      return this.initializationPromise;
     }
 
-    try {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      this.initializeChat();
-      this.initializeMeetChat();
-      this.isInitialized = true;
-    } catch (error) {
-      console.error('Error initializing Gemini:', error);
-      this.isInitialized = false;
-    }
-  }
+    const init = async () => {
+      const apiKey = store.get('geminiApiKey');
+      if (!apiKey) {
+        throw new Error('No Gemini API key found. Please set it in settings.');
+      }
 
-  initializeChat() {
-    try {
-      this.chat = this.model.startChat({
-        history: [],
-        generationConfig: {
-          maxOutputTokens: 1000,
-        },
-      });
-    } catch (error) {
-      console.error('Error initializing chat:', error);
-      throw error;
-    }
-  }
-
-  initializeMeetChat() {
-    try {
-      // First start with an empty chat
-      this.meetChat = this.model.startChat({
-        history: [],
-        generationConfig: {
-          maxOutputTokens: 1000,
-        },
-      });
+      console.log('Initializing Gemini service...');
       
-      // Then send the system prompt as the first message
-      // This ensures the first message is from the user role
-      return this.meetChat.sendMessage(meetPrompt)
-        .then(() => {
-          console.log('Meet chat initialized with system prompt');
-        })
-        .catch(error => {
-          console.error('Error setting up meet chat prompt:', error);
-          throw error;
-        });
-    } catch (error) {
-      console.error('Error initializing meet chat:', error);
-      throw error;
-    }
+      // Initialize the Google Generative AI client
+      this.genAI = new GoogleGenerativeAI(apiKey);
+      
+      // Configure the model
+      this.model = this.genAI.getGenerativeModel({ 
+        model: MODEL_NAME,
+        generationConfig: {
+          maxOutputTokens: DEFAULT_MAX_TOKENS,
+          temperature: 0.7,
+          topP: 0.95,
+          topK: 40,
+        },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        ],
+      });
+
+      // Initialize the chat session
+      await this._initializeChatSession();
+      
+      this.isInitialized = true;
+      console.log('GeminiService: Successfully initialized with meet chat.');
+      return true;
+    };
+
+    // Add retry logic
+    this.initializationPromise = this._withRetry(init, {
+      maxRetries: MAX_RETRIES,
+      delay: RETRY_DELAY,
+      taskName: 'Gemini initialization'
+    });
+
+    return this.initializationPromise;
   }
-  
+
+  /**
+   * Initialize the chat session with system prompt
+   */
+  async _initializeChatSession() {
+    console.log('Initializing Gemini chat session...');
+    
+    const chatConfig = {
+      history: [],
+      generationConfig: {
+        maxOutputTokens: DEFAULT_MAX_TOKENS,
+        temperature: 0.7,
+        topP: 0.95,
+        topK: 40,
+      }
+    };
+
+    // Add system instruction if available
+    if (meetPrompt) {
+      chatConfig.systemInstruction = {
+        role: 'model',
+        parts: [{ text: meetPrompt }]
+      };
+      console.log('GeminiService: System instruction set for chat session');
+    }
+    
+    this.meetChat = await this.model.startChat(chatConfig);
+    this.chat = this.meetChat; // For backward compatibility
+    
+    console.log('GeminiService: Chat session initialized successfully');
+    return this.meetChat;
+  }
+
+  /**
+   * Generic retry wrapper for API calls
+   */
+  async _withRetry(fn, { maxRetries = 3, delay = 1000, taskName = 'Operation' } = {}) {
+    let lastError;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        const isLastAttempt = attempt === maxRetries;
+        
+        if (isLastAttempt) {
+          console.error(`${taskName} failed after ${maxRetries} attempts:`, error);
+          throw error;
+        }
+        
+        const waitTime = delay * Math.pow(2, attempt);
+        console.warn(`${taskName} attempt ${attempt + 1} failed, retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
+    
+    throw lastError;
+  }
+
+  // Backward compatibility
+  async initializeAI() {
+    console.warn('initializeAI() is deprecated. Use initialize() instead.');
+    return this.initialize();
+  }
+
+  // Backward compatibility
+  async initializeMeetChat() {
+    console.warn('initializeMeetChat() is deprecated. Chat is now initialized automatically.');
+    return this.initialize();
+  }
 
   async setApiKey(apiKey) {
     store.set('geminiApiKey', apiKey);
-    try {
-      await this.initializeAI();
-      // Wait for meet chat to be fully initialized
-      await this.initializeMeetChat();
-      this.isInitialized = true;
-      return true;
-    } catch (error) {
-      console.error('Error initializing Gemini with API key:', error);
-      this.isInitialized = false;
-      throw error;
-    }
-  }
-
-  async sendMessage(message, options = {}) {
-    if (!this.isInitialized) {
-      throw new Error('Gemini AI is not initialized. Please set a valid API key.');
-    }
-
-    const { isMeet = false } = options;
-    const chatInstance = isMeet ? this.meetChat : this.chat;
-
-    if (!chatInstance) {
-      throw new Error(isMeet ? 'Meet chat is not initialized' : 'Chat is not initialized');
-    }
-
-    try {
-      const result = await chatInstance.sendMessage(message);
-      const response = await result.response;
-      const text = response.text();
-      return text;
-    } catch (error) {
-      console.error(`Error sending message to Gemini ${isMeet ? 'meet' : 'chat'}:`, error);
-      throw error;
-    }
-  }
-
-  clearConversation(options = {}) {
-    if (!this.isInitialized) return;
-
-    const { isMeet = false } = options;
     
+    // Re-initialize and replace the initialization promise.
+    // Subsequent calls will wait on this new promise.
+    this.initializationPromise = this.initializeAI();
+
     try {
-      if (isMeet) {
-        this.initializeMeetChat();
-      } else {
-        this.initializeChat();
-      }
+      await this.initializationPromise;
+      return true; // Return true on successful initialization
     } catch (error) {
-      console.error(`Error clearing ${isMeet ? 'meet' : 'chat'} conversation:`, error);
-      throw error;
+      // The error is already logged in initializeAI
+      return false; // Return false on failure
+    }
+  }
+
+  /**
+   * Sends a message to Gemini and returns the response
+   * @param {string} prompt - The user's message
+   * @param {string} [type='meet'] - The type of chat session to use
+   * @returns {Promise<string>} The AI's response
+   */
+  async sendMessage(prompt, type = 'meet') {
+    const startTime = Date.now();
+    const messageId = `msg_${Date.now()}`;
+    
+    // Log the outgoing message (truncated for logs)
+    const logPrefix = `[${messageId}]`;
+    const logMessage = prompt.length > 100 ? `${prompt.substring(0, 100)}...` : prompt;
+    console.log(`${logPrefix} Sending message to Gemini (${type}): "${logMessage}"`);
+
+    try {
+      // Ensure service is initialized
+      if (!this.isInitialized) {
+        console.log(`${logPrefix} Initializing Gemini service before sending message...`);
+        await this.initialize();
+      }
+
+      // Validate chat session
+      const chatSession = this.meetChat; // We only use meetChat now
+      if (!chatSession) {
+        throw new Error('Chat session is not initialized');
+      }
+
+      // Validate prompt
+      if (typeof prompt !== 'string' || prompt.trim() === '') {
+        throw new Error('Prompt must be a non-empty string');
+      }
+
+      // Send the message with retry logic
+      const response = await this._withRetry(
+        async () => {
+          try {
+            console.log(`${logPrefix} Sending to Gemini API...`);
+            const result = await chatSession.sendMessage(prompt);
+            
+            // Log the raw response for debugging
+            console.log(`${logPrefix} Raw API response:`, {
+              hasResponse: !!result,
+              responseKeys: result ? Object.keys(result) : 'no response',
+              textExists: result?.response?.text ? 'yes' : 'no'
+            });
+            
+            if (!result || !result.response) {
+              throw new Error('Invalid response format from Gemini API');
+            }
+            
+            const text = await result.response.text();
+            console.log(`${logPrefix} Extracted text from response (${text?.length || 0} chars)`);
+            
+            if (!text) {
+              throw new Error('Empty response text from Gemini API');
+            }
+            
+            return text;
+          } catch (error) {
+            console.error(`${logPrefix} Error in API call:`, error);
+            throw error; // Re-throw to allow retry logic to work
+          }
+        },
+        {
+          maxRetries: MAX_RETRIES,
+          delay: RETRY_DELAY,
+          taskName: `Gemini API call (${messageId})`
+        }
+      );
+
+      // Log successful response
+      const responseTime = Date.now() - startTime;
+      const responsePreview = response ? 
+        (response.length > 100 ? `${response.substring(0, 100)}...` : response) :
+        '[EMPTY RESPONSE]';
+        
+      console.log(`${logPrefix} Received response in ${responseTime}ms: "${responsePreview}"`);
+      
+      // Ensure we always return a string
+      return response || 'I apologize, but I couldn\'t generate a response. Please try again.';
+
+    } catch (error) {
+      const errorTime = Date.now() - startTime;
+      console.error(`${logPrefix} Error after ${errorTime}ms:`, error);
+      
+      // Enhance error message with more context
+      if (error.message.includes('API key not valid')) {
+        throw new Error('Invalid Gemini API key. Please check your API key in settings.');
+      } else if (error.message.includes('quota')) {
+        throw new Error('API quota exceeded. Please check your Gemini API usage limits.');
+      } else if (error.message.includes('model')) {
+        throw new Error('Model unavailable. The specified Gemini model may not be accessible.');
+      }
+      
+      throw new Error(`Failed to get response from Gemini: ${error.message}`);
+    }
+  }
+
+  // Helper to determine if an error is retryable
+  _isRetryableError(error, retryCount) {
+    // Don't retry if we've exceeded max retries
+    if (retryCount >= MAX_RETRIES) {
+      return false;
+    }
+    
+    // Network errors are retryable
+    if (error.message?.toLowerCase().includes('network')) {
+      return true;
+    }
+    
+    // Rate limiting errors (429)
+    if (error.message?.includes('429') || 
+        error.message?.toLowerCase().includes('rate limit') ||
+        error.message?.toLowerCase().includes('too many requests')) {
+      return true;
+    }
+    
+    // Server errors (5xx)
+    if (error.code >= 500 || 
+        error.message?.match(/5\d{2}/) ||
+        error.message?.toLowerCase().includes('server') ||
+        error.message?.toLowerCase().includes('service unavailable') ||
+        error.message?.toLowerCase().includes('timeout')) {
+      return true;
+    }
+    
+    // Default to not retrying for other errors
+    return false;
+  }
+
+  async clearConversation() {
+    try {
+      // Wait for any pending initialization
+      if (this.initializationPromise) {
+        await this.initializationPromise;
+      }
+      
+      if (!this.isInitialized) {
+        console.warn('Cannot clear conversation: Gemini is not initialized');
+        return false;
+      }
+      
+      console.log('Clearing Gemini meet chat conversation...');
+      
+      // Reset the meet chat
+      this.meetChat = null;
+      
+      // Reinitialize the meet chat
+      await this.initializeMeetChat();
+      
+      // Update the chat reference for backward compatibility
+      this.chat = this.meetChat;
+      
+      console.log('Gemini meet chat conversation cleared');
+      return true;
+      
+    } catch (error) {
+      const errorMsg = `Failed to clear conversation: ${error.message}`;
+      console.error(errorMsg, error);
+      throw new Error(errorMsg);
     }
   }
 }
@@ -1367,387 +1142,263 @@ class GeminiService {
 module.exports = new GeminiService();
 </file>
 
-<file path="src/main.js">
-const { app, BrowserWindow, globalShortcut, ipcMain, dialog, systemPreferences } = require('electron');
-const path = require('path');
+<file path="src/services/meets.js">
+// src/services/meets.js
+
+const { AssemblyAI } = require('assemblyai');
+const recorder = require('node-record-lpcm16');
+const { Readable } = require('stream');
+const { v4: uuidv4 } = require('uuid');
 const Store = require('electron-store');
-const geminiService = require('./services/gemini');
-const MeetService = require('./services/meets');
+const EventEmitter = require('events');
+const geminiService = require('./gemini');
 
-// Initialize @electron/remote
-require('@electron/remote/main').initialize();
+const store = new Store();
 
-// Initialize store
-const store = new Store({
-  defaults: {
-    windowBounds: { width: 400, height: 300, x: 0, y: 0 },
-    notes: '',
-    isAlwaysOnTop: true,
-    opacity: 0.9
-  }
-});
-
-let mainWindow;
-const meetService = new MeetService();
-
-function createWindow() {
-  const { width, height, x, y } = store.get('windowBounds');
-  
-  // Create the browser window.
-  mainWindow = new BrowserWindow({
-    width: width,
-    height: height,
-    x: x,
-    y: y,
-    frame: true,
-    titleBarStyle: 'hiddenInset', // For macOS traffic lights
-    backgroundColor: '#00000000', // Transparent background
-    transparent: true,
-    hasShadow: false,
-    alwaysOnTop: store.get('isAlwaysOnTop'),
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-      backgroundThrottling: false,
-      webSecurity: false,          // From the first object
-      enableRemoteModule: true,    // From the second object
-      nodeIntegrationInWorker: true // From the second object
-    },
-    skipTaskbar: true
-  });
-
-  // Enable @electron/remote for this window
-  require('@electron/remote/main').enable(mainWindow.webContents);
-
-  // Load the index.html file
-  mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
-
-  // Enable content protection to hide from screen capture
-  mainWindow.setContentProtection(true); // Temporarily disabled for debugging
-  console.log('Content protection DISABLED for debugging.'); 
-
-  // Open the DevTools
-  // mainWindow.webContents.openDevTools({ mode: 'detach' });
-
-  // Set up window event listeners
-  mainWindow
-    // Window state events
-    .on('maximize', () => mainWindow.webContents.send('window-maximized'))
-    .on('unmaximize', () => mainWindow.webContents.send('window-unmaximized'))
-    
-    // Save window bounds
-    .on('resize', saveWindowBounds)
-    .on('move', saveWindowBounds)
-    .on('moved', saveWindowBounds)
-    .on('resized', saveWindowBounds)
-    
-    // Window close behavior
-    .on('close', (e) => {
-      if (!isQuitting) {
-        e.preventDefault();
-        mainWindow.hide();
-        return false;
-      }
-      return true;
-    })
-    
-    // Content protection
-    .on('show', () => mainWindow.setContentProtection(true))
-    .on('focus', () => {
-      console.log('Main: Window focused');
-      // mainWindow.setContentProtection(true); // Temporarily disabled
-      mainWindow.webContents.send('window-focused');
-    });
-
-  // Register global shortcut (Cmd+/ or Ctrl+/)
-  const ret = globalShortcut.register('CommandOrControl+/', () => {
-    console.log('Global shortcut triggered');
-    if (mainWindow.isVisible()) {
-      mainWindow.hide();
-    } else {
-      mainWindow.show();
-      mainWindow.focus();
+class MeetService extends EventEmitter {
+    constructor() {
+        super();
+        this.assembly = null;
+        this.transcriber = null;
+        this.recordingProcess = null;
+        this.isListening = false;
+        this.sessionId = null;
     }
-  });
 
-  if (!ret) {
-    console.log('Global shortcut registration failed');
-  }
+    init(apiKey) {
+        if (!apiKey) {
+            this.emit('error', 'AssemblyAI API key is not set.');
+            return false;
+        }
+        try {
+            this.assembly = new AssemblyAI({ apiKey });
+            console.log('MeetService initialized with AssemblyAI key.');
+            return true;
+        } catch (error) {
+            this.emit('error', `Failed to initialize AssemblyAI: ${error.message}`);
+            return false;
+        }
+    }
 
-  // Attempt to initialize MeetService on startup with a stored key
-  const assemblyAiApiKey = store.get('assemblyAiApiKey');
-  if (assemblyAiApiKey) {
-    console.log('Main: Initializing MeetService with stored API key.');
-    meetService.init(assemblyAiApiKey);
-  }
+    async start() {
+        if (this.isListening) {
+            console.log('Already listening.');
+            return;
+        }
+        
+        // Reset session ID for new session
+        this.sessionId = `session_${Date.now()}`;
+        
+        if (!this.assembly) {
+            const error = new Error('AssemblyAI is not initialized');
+            this.emit('error', error.message);
+            throw error;
+        }
+        
+        // Reset any existing state
+        this.isListening = true;
+        this.emit('status', 'connecting');
+        console.log(`[${this.sessionId}] Starting transcription...`);
+        
+        // Initialize Gemini service if not already done
+        try {
+            await geminiService.initializeAI();
+        } catch (error) {
+            const errMsg = `Failed to initialize Gemini: ${error.message}`;
+            console.error(errMsg, error);
+            this.emit('error', errMsg);
+            this.isListening = false;
+            this.emit('status', 'error');
+            throw new Error(errMsg);
+        }
 
-  // Push initial state to renderer once it's loaded
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('Main: Renderer finished loading. Pushing initial state.');
-    mainWindow.webContents.send('load-notes', store.get('notes'));
-    mainWindow.webContents.send('update-opacity', store.get('opacity'));
-    mainWindow.webContents.send('update-always-on-top-status', store.get('isAlwaysOnTop'));
-  });
+        try {
+            this.transcriber = this.assembly.streaming.transcriber({
+                sampleRate: 16_000,
+                formatTurns: true,
+                end_utterance_silence_threshold: 1050
+            });
+
+            // --- Event Handlers ---
+            this.transcriber.on('open', ({ sessionId }) => {
+                this.sessionId = sessionId || uuidv4();
+                console.log(`Session opened with ID: ${this.sessionId}`);
+                this.emit('status', 'listening');
+            });
+
+            this.transcriber.on('error', (error) => {
+                console.error('Transcriber Error:', error);
+                this.emit('error', error.message);
+                this.stop();
+            });
+
+            this.transcriber.on('close', (code, reason) => {
+                console.log('Session closed:', code, reason);
+                this.emit('status', 'idle');
+            });
+
+            // Listen for 'turn' events and check for the end of an utterance
+            this.transcriber.on('turn', async (turn) => {
+                // Skip if not a complete turn or no transcript
+                if (!turn.end_of_turn || !turn.turn_is_formatted || !turn.transcript?.trim()) {
+                    return;
+                }
+
+                const transcriptText = turn.transcript.trim();
+                console.log(`[FINALIZED TURN]: ${transcriptText.substring(0, 100)}${transcriptText.length > 100 ? '...' : ''}`);
+                
+                // Emit that we're processing the transcript
+                this.emit('status', 'processing_transcript');
+                
+                try {
+                    // Process with Gemini
+                    const response = await geminiService.sendMessage(transcriptText, { 
+                        isMeet: true 
+                    });
+                    
+                    if (!response) {
+                        throw new Error('Received empty response from Gemini');
+                    }
+                    
+                    // Emit the successful response
+                    const transcriptData = {
+                        message_type: 'FinalTranscript',
+                        text: transcriptText,
+                        response: response,
+                        sessionId: this.sessionId,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    this.emit('transcript', transcriptData);
+                    this.emit('status', 'transcript_processed');
+                    
+                } catch (error) {
+                    console.error('Error processing transcript with Gemini:', error);
+                    
+                    // Format error response
+                    const errorMessage = error.message || 'Unknown error occurred';
+                    const errorData = {
+                        message: 'Failed to process transcript with Gemini',
+                        error: errorMessage,
+                        timestamp: new Date().toISOString(),
+                        sessionId: this.sessionId,
+                        isGeminiError: true
+                    };
+                    
+                    // Emit error event
+                    this.emit('error', errorData);
+                    
+                    // Also emit a transcript event with error info for the UI
+                    this.emit('transcript', {
+                        message_type: 'Error',
+                        text: transcriptText,
+                        response: `Error: ${errorMessage}`,
+                        sessionId: this.sessionId,
+                        timestamp: new Date().toISOString(),
+                        isError: true
+                    });
+                } finally {
+                    // Always ensure we're back to listening state after processing
+                    if (this.isListening) {
+                        this.emit('status', 'listening');
+                    }
+                }
+            });
+
+            await this.transcriber.connect();
+            console.log(`Connected to AssemblyAI. Starting local recording...`);
+
+            const recordConfig = {
+                channels: 1,
+                sampleRate: 16000,
+                audioType: 'wav',
+                verbose: false, // Can be set to false now
+            };
+            
+            this.recordingProcess = recorder.record(recordConfig);
+
+            const audioStream = this.recordingProcess.stream();
+            audioStream.on('error', (err) => {
+                console.error(`Recording stream error:`, err);
+                this.emit('error', `Recording stream error: ${err.message}`);
+                this.stop().catch(console.error);
+            });
+
+            console.log(`Piping audio stream to AssemblyAI...`);
+            const webStream = Readable.toWeb(audioStream);
+            webStream.pipeTo(this.transcriber.stream())
+                .then(() => console.log('Piping finished.'))
+                .catch(async (error) => {
+                    console.error(`Error piping audio stream:`, error);
+                    this.emit('error', `Stream piping error: ${error.message}`);
+                    await this.stop();
+                });
+
+        } catch (error) {
+            console.error('Error in start method:', error);
+            this.emit('error', `Start Error: ${error.message}`);
+            this.stop();
+        }
+    }
+
+    async stop() {
+        // If already stopped, do nothing
+        if (!this.isListening && !this.recordingProcess && !this.transcriber) {
+            return;
+        }
+        
+        const sessionId = this.sessionId || 'unknown_session';
+        console.log(`[${sessionId}] Stopping transcription service...`);
+        
+        // Update state immediately to prevent new processing
+        this.isListening = false;
+        
+        // Stop recording first
+        if (this.recordingProcess) {
+            try {
+                this.recordingProcess.stop();
+                console.log(`[${sessionId}] Audio recording stopped`);
+            } catch (error) {
+                console.error(`[${sessionId}] Error stopping recording:`, error);
+                this.emit('error', `Error stopping recording: ${error.message}`);
+            } finally {
+                this.recordingProcess = null;
+            }
+        }
+        
+        // Close the transcriber
+        if (this.transcriber && this.transcriber.status !== 'closed') {
+            try {
+                await this.transcriber.close();
+                console.log(`[${sessionId}] Transcriber connection closed`);
+            } catch (error) {
+                console.error(`[${sessionId}] Error closing transcriber:`, error);
+                this.emit('error', `Error closing transcriber: ${error.message}`);
+            } finally {
+                this.transcriber = null;
+            }
+        }
+        
+        // Clear any pending operations
+        if (this.sessionTimeout) {
+            clearTimeout(this.sessionTimeout);
+            this.sessionTimeout = null;
+        }
+        
+        // Emit final status
+        this.emit('status', 'idle');
+        console.log(`[${sessionId}] Transcription service fully stopped`);
+        
+        // Emit session ended event
+        this.emit('session_ended', { 
+            sessionId: sessionId,
+            timestamp: new Date().toISOString(),
+            endedAt: new Date().toISOString()
+        });
+    }
 }
 
-function saveWindowBounds() {
-  if (mainWindow) {
-    const bounds = mainWindow.getBounds();
-    store.set('windowBounds', bounds);
-  }
-}
-
-// This method will be called when Electron has finished initialization
-// Forward MeetService events to the renderer process with enhanced logging
-meetService.on('status', (status) => {
-  console.log(`[${new Date().toISOString()}] MeetService status:`, status);
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('meet-status-update', status);
-  }
-});
-
-meetService.on('transcript', (transcript) => {
-  console.log(`[${new Date().toISOString()}] MeetService transcript:`, 
-    `${transcript.text.substring(0, 50)}${transcript.text.length > 50 ? '...' : ''}`);
-  
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('meet-transcript-update', {
-      ...transcript,
-      timestamp: transcript.timestamp || new Date().toISOString()
-    });
-  }
-});
-
-meetService.on('session_ended', (sessionData) => {
-  console.log(`[${new Date().toISOString()}] MeetService session ended:`, sessionData.sessionId);
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('meet-session-ended', sessionData);
-  }
-});
-
-meetService.on('error', (error) => {
-  const errorMessage = error.message || String(error);
-  console.error(`[${new Date().toISOString()}] MeetService error:`, errorMessage);
-  
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('meet-error', {
-      message: errorMessage,
-      timestamp: new Date().toISOString(),
-      stack: error.stack
-    });
-  }
-});
-
-app.whenReady().then(async () => {
-  if (process.platform === 'darwin') { // macOS specific
-    const microphoneAccess = await systemPreferences.askForMediaAccess('microphone');
-    if (!microphoneAccess) {
-      dialog.showErrorBox('Microphone Access Denied', 'You must allow microphone access in System Preferences to use the voice features.');
-    }
-  }
-  createWindow();
-
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
-
-// Quit when all windows are closed, except on macOS
-app.on('window-all-closed', function () {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-// Save notes when received from renderer
-ipcMain.on('save-notes', (event, notes) => {
-  store.set('notes', notes);
-});
-
-// Update window opacity
-ipcMain.on('update-opacity', (event, opacity) => {
-  if (mainWindow) {
-    mainWindow.setOpacity(opacity);
-    store.set('opacity', opacity);
-  }
-});
-
-// Toggle always on top
-ipcMain.on('toggle-always-on-top', async (event) => {
-  const isAlwaysOnTop = !store.get('isAlwaysOnTop');
-  store.set('isAlwaysOnTop', isAlwaysOnTop);
-  mainWindow.setAlwaysOnTop(isAlwaysOnTop, 'floating');
-  console.log('Main: Toggled always on top to:', isAlwaysOnTop);
-  mainWindow.webContents.send('update-always-on-top-status', isAlwaysOnTop);
-});
-
-// Get current opacity
-ipcMain.handle('get-opacity', () => {
-  return store.get('opacity', 0.9);
-});
-
-// Get always on top status
-ipcMain.handle('get-always-on-top', () => {
-  return store.get('isAlwaysOnTop', true);
-});
-
-// Window movement handling
-ipcMain.on('window-move', (event, { x, y }) => {
-  if (mainWindow && !mainWindow.isMaximized()) {
-    mainWindow.setPosition(x, y);
-  }
-});
-
-
-
-ipcMain.on('window-resize', (event, { width, height }) => {
-  if (mainWindow) {
-    const [currentWidth, currentHeight] = mainWindow.getSize();
-    if (Math.abs(currentWidth - width) > 10 || Math.abs(currentHeight - height) > 10) {
-      mainWindow.setSize(Math.round(width), Math.round(height));
-    }
-  }
-});
-
-// Gemini AI related IPC handlers
-ipcMain.handle('set-api-key', (event, apiKey) => {
-  try {
-    store.set('geminiApiKey', apiKey); // Persist the key
-    console.log('Main: Gemini API key saved.');
-    return geminiService.setApiKey(apiKey);
-  } catch (error) {
-    console.error('Error setting Gemini API key:', error);
-    return false;
-  }
-});
-
-ipcMain.handle('get-gemini-api-key', () => {
-  return store.get('geminiApiKey');
-});
-
-ipcMain.handle('send-message-to-gemini', async (event, message) => {
-  try {
-    return await geminiService.sendMessage(message);
-  } catch (error) {
-    console.error('Error sending message to Gemini:', error.message);
-    throw new Error(error.message || 'An unknown error occurred.');
-  }
-});
-
-
-// Handle Gemini prompts from both chat and meets views
-ipcMain.on('gemini-prompt', async (event, { view, prompt, sessionId }) => {
-  const isMeet = view === 'meets';
-  console.log(`[${new Date().toISOString()}] Gemini prompt received for ${view} view (${isMeet ? 'meet' : 'chat'})`);
-  
-  try {
-    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-      throw new Error('Empty or invalid prompt');
-    }
-    
-    console.log(`[${new Date().toISOString()}] Sending to Gemini ${isMeet ? 'meet' : 'chat'}: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}"`);
-    
-    const startTime = Date.now();
-    const response = await geminiService.sendMessage(prompt, { isMeet });
-    const responseTime = Date.now() - startTime;
-    
-    console.log(`[${new Date().toISOString()}] Gemini ${isMeet ? 'meet' : 'chat'} response received in ${responseTime}ms`);
-    
-    event.sender.send('gemini-response', { 
-      view, 
-      response,
-      sessionId,
-      timestamp: new Date().toISOString(),
-      responseTime
-    });
-    
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error processing Gemini ${isMeet ? 'meet' : 'chat'} prompt:`, error);
-    
-    event.sender.send('gemini-response', { 
-      view, 
-      response: `Error: ${error.message || 'Failed to process your request'}`, 
-      sessionId,
-      timestamp: new Date().toISOString(),
-      error: true
-    });
-  }
-});
-ipcMain.handle('set-gemini-api-key', async (event, apiKey) => {
-  try {
-      console.log('Setting Gemini API key...');
-      await geminiService.setApiKey(apiKey);
-      console.log('Gemini API key set successfully');
-      return true;
-  } catch (error) {
-      console.error('Error setting Gemini API key:', error);
-      return false;
-  }
-});
-
-ipcMain.handle('clear-gemini-conversation', () => {
-  geminiService.clearConversation();
-  return true;
-});
-
-ipcMain.handle('get-gemini-status', () => {
-  return geminiService.isInitialized;
-});
-
-// AssemblyAI related IPC handlers
-ipcMain.handle('set-assemblyai-api-key', (event, apiKey) => {
-  try {
-    store.set('assemblyAiApiKey', apiKey);
-    console.log('Main: AssemblyAI API key saved.');
-    return meetService.init(apiKey); // Initialize service with the new key
-  } catch (error) {
-    console.error('Error setting AssemblyAI API key:', error);
-    return false;
-  }
-});
-
-ipcMain.handle('get-assemblyai-api-key', () => {
-  return store.get('assemblyAiApiKey');
-});
-
-// Meet service controls
-ipcMain.on('start-meet', async () => {
-  try {
-    console.log(`[${new Date().toISOString()}] Starting meet service...`);
-    await meetService.start();
-    console.log(`[${new Date().toISOString()}] Meet service started successfully`);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error starting meet service:`, error);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('meet-error', {
-        message: `Failed to start meet: ${error.message}`,
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
-});
-
-ipcMain.on('stop-meet', async () => {
-  try {
-    console.log(`[${new Date().toISOString()}] Stopping meet service...`);
-    await meetService.stop();
-    console.log(`[${new Date().toISOString()}] Meet service stopped successfully`);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error stopping meet service:`, error);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('meet-error', {
-        message: `Error stopping meet: ${error.message}`,
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
-});
-
-// Clean up on quit
-app.on('will-quit', () => {
-  // Unregister all shortcuts
-  globalShortcut.unregisterAll();
-});
+module.exports = new MeetService();
 </file>
 
 <file path="src/preload.js">
@@ -1857,60 +1508,9 @@ typings/
 
 # Electron-Forge
 out/
-</file>
 
-<file path=".repomixignore">
-Doc
-Doc/
-</file>
-
-<file path="forge.config.js">
-const { FusesPlugin } = require('@electron-forge/plugin-fuses');
-const path = require('path');
-const { FuseV1Options, FuseVersion } = require('@electron/fuses');
-
-module.exports = {
-  packagerConfig: {
-    asar: true,
-    icon: path.join(__dirname, 'src/media/chrome'), // Forge will automatically use .icns for macOS and .ico for Windows
-  },
-  rebuildConfig: {},
-  makers: [
-    {
-      name: '@electron-forge/maker-squirrel',
-      config: {},
-    },
-    {
-      name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
-    },
-    {
-      name: '@electron-forge/maker-deb',
-      config: {},
-    },
-    {
-      name: '@electron-forge/maker-rpm',
-      config: {},
-    },
-  ],
-  plugins: [
-    {
-      name: '@electron-forge/plugin-auto-unpack-natives',
-      config: {},
-    },
-    // Fuses are used to enable/disable various Electron functionality
-    // at package time, before code signing the application
-    new FusesPlugin({
-      version: FuseVersion.V1,
-      [FuseV1Options.RunAsNode]: false,
-      [FuseV1Options.EnableCookieEncryption]: true,
-      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-      [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
-    }),
-  ],
-};
+repomix-output.xml
+repomix-ignore.xml
 </file>
 
 <file path="package.json">
@@ -1977,13 +1577,16 @@ module.exports = {
 </head>
 <body>
     <div id="app">
+        <!-- Window Controls (handled by Electron) -->
+        <div class="window-controls-spacer"></div>
+        
+        <!-- Custom Title Bar -->
         <div class="title-bar">
             <div class="title-bar-left">
-                <div class="app-title">XamDost</div>
+                <div class="app-title">XamDost - Meets</div>
                 <div class="window-actions">
-                    <button id="meets-btn" class="action-btn" title="Meets (⌘1)">🎙️</button>
-                    <button id="chat-btn" class="action-btn" title="Chat (⌘2)">💬</button>
-                    <button id="settings-btn" class="action-btn" title="Settings (⌘,)" class="active">⚙️</button>
+                    <button id="meets-btn" class="action-btn active" title="Meets (⌘1)">🎙️ Meets</button>
+                    <button id="settings-btn" class="action-btn" title="Settings (⌘,)">⚙️ Settings</button>
                 </div>
             </div>
         </div>
@@ -2014,21 +1617,8 @@ module.exports = {
                 </div>
             </div>
 
-            <!-- Chat View -->
-            <div id="chat-view" class="view">
-                <div id="chat-messages" class="chat-messages">
-                    <div class="message ai-message">
-                        <div class="message-content">Hello! I'm your AI assistant. How can I help you today?</div>
-                    </div>
-                </div>
-                <div class="chat-input-container">
-                    <textarea id="chat-input" placeholder="Type a message..." rows="1"></textarea>
-                    <button id="send-message">Send</button>
-                </div>
-            </div>
-
             <!-- Meets View -->
-            <div id="meets-view" class="view">
+            <div id="meets-view" class="view" style="display: flex; flex-direction: column;">
                 <div class="meet-header">
                     <div class="meet-controls">
                         <button id="meet-start-button" class="meet-toggle">
@@ -2067,12 +1657,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // View Buttons
     const settingsBtn = document.getElementById('settings-btn');
-    const chatBtn = document.getElementById('chat-btn');
     const meetsBtn = document.getElementById('meets-btn');
 
     // Views
     const settingsView = document.getElementById('settings-view');
-    const chatView = document.getElementById('chat-view');
     const meetsView = document.getElementById('meets-view');
 
     // Settings Elements
@@ -2085,11 +1673,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const assemblyAiApiKeyInput = document.getElementById('assemblyai-api-key-input');
     const saveAssemblyAiApiKeyBtn = document.getElementById('save-assemblyai-api-key-btn');
     const assemblyAiApiKeyStatus = document.getElementById('assemblyai-api-key-status');
-
-    // Chat Elements
-    const chatInput = document.getElementById('chat-input');
-    const sendMessageBtn = document.getElementById('send-message');
-    const chatMessages = document.getElementById('chat-messages');
 
     // Meet Elements
     const meetStartButton = document.getElementById('meet-start-button');
@@ -2134,25 +1717,66 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Event Listeners ---
+    
+    // Listen for Gemini responses
+    ipcRenderer.on('gemini-response', (event, { response, error, view, messageId }) => {
+        if (view !== 'meets') return;
+        
+        console.log('Gemini response received in renderer:', {
+            messageId,
+            hasResponse: !!response,
+            responseType: typeof response,
+            preview: response ? String(response).substring(0, 100) + '...' : 'empty'
+        });
+        
+        // Remove typing indicator
+        const typingIndicator = document.querySelector('.typing-indicator');
+        if (typingIndicator && typingIndicator.parentElement) {
+            typingIndicator.parentElement.remove();
+        }
+        
+        try {
+            if (error) {
+                console.error('Error from Gemini:', error);
+                addMessage(`Error: ${error.message || 'Unknown error'}`, 'error', meetsChatContainer);
+            } else if (response) {
+                // Ensure response is a string
+                const responseText = typeof response === 'string' ? response : JSON.stringify(response);
+                console.log('Adding message to chat:', { length: responseText.length, preview: responseText.substring(0, 50) });
+                addMessage(responseText, 'ai', meetsChatContainer, true);
+            } else {
+                console.error('Empty response from Gemini');
+                addMessage('Error: Received empty response from Gemini', 'error', meetsChatContainer);
+            }
+        } catch (err) {
+            console.error('Error processing Gemini response:', err);
+            addMessage(`Error displaying response: ${err.message}`, 'error', meetsChatContainer);
+        }
+        
+        // Ensure scroll to bottom
+        meetsChatContainer.scrollTop = meetsChatContainer.scrollHeight;
+    });
+    
+    // Set up initial view
+    document.addEventListener('DOMContentLoaded', () => {
+        // Show meets view by default
+        switchView('meets');
+        
+        // Initialize API key status
+        checkGeminiStatus();
+    });
 
     // Meet Controls
     meetStartButton.addEventListener('click', () => {
         ipcRenderer.send('start-meet');
-        meetStartButton.disabled = true;
-        meetStopButton.disabled = false;
-        meetStatus.textContent = 'Status: Listening...';
     });
 
     meetStopButton.addEventListener('click', () => {
         ipcRenderer.send('stop-meet');
-        meetStartButton.disabled = false;
-        meetStopButton.disabled = true;
-        meetStatus.textContent = 'Status: Idle';
     });
 
     // View Switching
     settingsBtn.addEventListener('click', () => switchView('settings'));
-    chatBtn.addEventListener('click', () => switchView('chat'));
     meetsBtn.addEventListener('click', () => switchView('meets'));
 
     // Settings
@@ -2174,21 +1798,71 @@ window.addEventListener('DOMContentLoaded', () => {
         updateApiKeyStatus(assemblyAiApiKeyStatus, success, 'AssemblyAI');
     });
 
-    // Chat
-    if (chatInput) {
-        chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendChatMessage();
-            }
-        });
-    }
-
-    if (sendMessageBtn) {
-        sendMessageBtn.addEventListener('click', sendChatMessage);
-    }
-
     // Meets Chat
+    function sendMeetsChatMessage() {
+        const message = meetsChatInput.value.trim();
+        if (!message) return;
+        
+        try {
+            // Add user message to chat
+            addMessage(message, 'user', meetsChatContainer);
+            
+            // Clear input and reset height
+            meetsChatInput.value = '';
+            meetsChatInput.style.height = 'auto';
+            
+            // Generate a unique ID for this message chain
+            const messageId = Date.now().toString();
+            
+            // Show typing indicator
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            typingIndicator.id = `typing-${messageId}`;
+            typingIndicator.innerHTML = `
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            `;
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message ai-message';
+            messageElement.id = `message-${messageId}`;
+            messageElement.appendChild(typingIndicator);
+            meetsChatContainer.appendChild(messageElement);
+            meetsChatContainer.scrollTop = meetsChatContainer.scrollHeight;
+            
+            // Send message to main process
+            ipcRenderer.send('gemini-prompt', {
+                prompt: message,
+                view: 'meets',
+                messageId: messageId
+            });
+            
+            // Set a timeout to show a message if the response takes too long
+            const timeoutId = setTimeout(() => {
+                const indicator = document.getElementById(`typing-${messageId}`);
+                if (indicator && !indicator.querySelector('.typing-timeout')) {
+                    const timeoutMsg = document.createElement('div');
+                    timeoutMsg.className = 'typing-timeout';
+                    timeoutMsg.textContent = 'Getting response...';
+                    indicator.appendChild(timeoutMsg);
+                }
+            }, 5000); // Show after 5 seconds
+            
+            // Clean up timeout when response is received
+            const cleanup = () => {
+                clearTimeout(timeoutId);
+                ipcRenderer.off(`gemini-response-${messageId}`, cleanup);
+            };
+            
+            ipcRenderer.once(`gemini-response-${messageId}`, cleanup);
+            
+        } catch (error) {
+            console.error('Error sending message:', error);
+            addMessage('Failed to send message. Please try again.', 'error', meetsChatContainer);
+        }
+    }
+
     if (meetsChatInput) {
         meetsChatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -2201,17 +1875,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if (meetsSendMessageBtn) {
         meetsSendMessageBtn.addEventListener('click', sendMeetsChatMessage);
     }
-
-    // Meet
-    meetToggleButton.addEventListener('click', () => {
-        if (isListening) {
-            ipcRenderer.send('stop-meet');
-        } else {
-            ipcRenderer.send('start-meet');
-            meetsChatContainer.innerHTML = '';
-            finalTranscript = '';
-        }
-    });
 
     // Window Dragging
     titleBar.addEventListener('mousedown', (e) => {
@@ -2227,23 +1890,18 @@ window.addEventListener('DOMContentLoaded', () => {
     ipcRenderer.on('update-always-on-top-status', (event, isAlwaysOnTop) => {
         alwaysOnTopBtn.textContent = isAlwaysOnTop ? 'Disable Always on Top' : 'Enable Always on Top';
     });
-
-    ipcRenderer.on('meet-status', (event, status) => {
-        meetStatus.textContent = `Status: ${status}`;
-        if (status === 'listening') {
-            meetStartButton.disabled = true;
-            meetStopButton.disabled = false;
-        } else if (status === 'stopped' || status === 'error') {
-            meetStartButton.disabled = false;
-            meetStopButton.disabled = true;
-        }
-    });
-
+    
+    // This handler now correctly manages the start/stop button states.
     ipcRenderer.on('meet-status-update', (event, status) => {
         meetStatus.textContent = `Status: ${status}`;
         isListening = (status === 'listening');
-        meetToggleButton.textContent = isListening ? 'Stop Listening' : 'Start Listening';
-        meetToggleButton.classList.toggle('listening', isListening);
+        if (isListening) {
+            meetStartButton.disabled = true;
+            meetStopButton.disabled = false;
+        } else {
+            meetStartButton.disabled = false;
+            meetStopButton.disabled = true;
+        }
     });
 
     // Handle transcript updates from the meet service
@@ -2263,9 +1921,6 @@ window.addEventListener('DOMContentLoaded', () => {
                     console.log('Adding meet service response to chat');
                     addMessage(transcript.response, 'ai', meetsChatContainer, true);
                 }
-                
-                // Update the UI to show the transcript was processed
-                meetStatus.textContent = 'Idle';
             }
         } catch (error) {
             console.error('Error processing transcript:', error);
@@ -2276,38 +1931,34 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Handle Gemini responses for both chat and meet views
+    // Handle Gemini responses for meet view
     ipcRenderer.on('gemini-response', (event, { view, response, error, sessionId }) => {
         try {
             console.log(`[RENDERER] Received Gemini response payload:`, { view, response, error, sessionId });
 
-            const container = view === 'chat' ? chatMessages : meetsChatContainer;
-            if (!container) {
-                console.error(`[RENDERER] Container not found for view: ${view}`);
+            if (view !== 'meets') {
+                console.warn(`[RENDERER] Ignoring response for unsupported view: ${view}`);
                 return;
             }
 
             if (error) {
                 console.error('[RENDERER] Gemini API Error:', error);
-                addMessage(`Error: ${response || 'Failed to get response from Gemini'}`, 'error', container);
+                addMessage(`Error: ${response || 'Failed to get response from Gemini'}`, 'error', meetsChatContainer);
                 return;
             }
 
             if (!response) {
                 console.warn('[RENDERER] Empty response from Gemini');
-                addMessage('Received an empty response from Gemini.', 'ai', container);
+                addMessage('Received an empty response from Gemini.', 'ai', meetsChatContainer);
                 return;
             }
 
-            console.log(`[RENDERER] Adding AI response to ${container.id}:`, response);
-            addMessage(response, 'ai', container, true);
+            console.log(`[RENDERER] Adding AI response to meets chat`);
+            addMessage(response, 'ai', meetsChatContainer, true);
 
         } catch (e) {
             console.error('[RENDERER] Fatal error in gemini-response handler:', e);
-            const container = view === 'chat' ? chatMessages : meetsChatContainer;
-            if (container) {
-                addMessage(`Error displaying response: ${e.message}`, 'error', container);
-            }
+            addMessage(`Error displaying response: ${e.message}`, 'error', meetsChatContainer);
         }
     });
 
@@ -2316,144 +1967,193 @@ window.addEventListener('DOMContentLoaded', () => {
         console.error('Meet service error:', error);
         meetStatus.textContent = `Error: ${error.message || error}`;
         isListening = false;
-        meetToggleButton.textContent = 'Start Listening';
-        meetToggleButton.classList.remove('listening');
+        // Correctly reset button states
+        meetStartButton.disabled = false;
+        meetStopButton.disabled = true;
         
         // Show error in chat as well
         addMessage(`Error: ${error.message || 'An error occurred with the voice service'}`, 'error', meetsChatContainer);
     });
 
     // --- Core Functions ---
-    // In renderer.js
-function switchView(viewName) {
-    // Hide all views
-    document.querySelectorAll('.view').forEach(view => {
-        view.classList.remove('active');
-        view.style.display = 'none';
-    });
-    
-    // Remove active class from all buttons
-    document.querySelectorAll('.action-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Show the selected view
-    const view = document.getElementById(`${viewName}-view`);
-    const button = document.getElementById(`${viewName}-btn`);
-    
-    if (view) {
-        view.classList.add('active');
-        view.style.display = 'block';
-    }
-    if (button) {
-        button.classList.add('active');
-    }
-    
-    // Focus the input if switching to chat or meets view
-    if (viewName === 'chat') {
-        setTimeout(() => {
-            const input = document.getElementById('chat-input');
-            if (input) input.focus();
-        }, 0);
-    } else if (viewName === 'meets') {
-        setTimeout(() => {
-            const input = document.getElementById('meets-chat-input');
-            if (input) input.focus();
-        }, 0);
-    }
-}
-
-    // Send message in chat view
-    function sendChatMessage() {
-        const message = chatInput.value.trim();
-        if (!message) return;
-
-        // Add user message to chat
-        addMessage(message, 'user', chatMessages);
-        chatInput.value = '';
-        autoResizeTextarea(chatInput);
-
-        // Send to Gemini
-        ipcRenderer.send('gemini-prompt', {
-            view: 'chat',
-            prompt: message,
-            sessionId: 'chat-session-' + Date.now()
+    function switchView(viewName) {
+        // Hide all views
+        document.querySelectorAll('.view').forEach(view => {
+            view.style.display = 'none';
         });
-    }
 
-    // Send message in meets view
-    function sendMeetsChatMessage() {
-        const message = meetsChatInput.value.trim();
-        if (!message) return;
-        
-        // Add user message to meets chat
-        addMessage(message, 'user', meetsChatContainer);
-        meetsChatInput.value = '';
-        autoResizeTextarea(meetsChatInput);
-        
-        // Send to Gemini
-        ipcRenderer.send('gemini-prompt', { 
-            view: 'meets',
-            prompt: message,
-            sessionId: 'meet-session-' + Date.now()
+        // Remove active class from all buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.classList.remove('active');
         });
+
+        // Show selected view and set active button
+        switch (viewName) {
+            case 'settings':
+                settingsView.style.display = 'block';
+                settingsBtn.classList.add('active');
+                document.title = 'BugRix - Settings';
+                break;
+            case 'meets':
+                meetsView.style.display = 'flex';
+                meetsBtn.classList.add('active');
+                document.title = 'BugRix - Meets';
+                // Focus the meets chat input when switching to meets view
+                if (meetsChatInput) {
+                    setTimeout(() => meetsChatInput.focus(), 100);
+                }
+                break;
+        }
     }
 
-// --- Helper Functions ---
-function addMessage(text, type, container, isMarkdown = false) {
-    if (!container) {
-        console.error('Cannot add message: Container is null or undefined');
-        return;
-    }
-    
-    // Create message container
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}-message`;
-    
-    try {
-        // Add timestamp
-        const timestamp = new Date().toLocaleTimeString();
-        const timestampSpan = document.createElement('span');
-        timestampSpan.className = 'message-timestamp';
-        timestampSpan.textContent = `[${timestamp}] `;
-        messageDiv.appendChild(timestampSpan);
-        
-        // Add message content
-        const contentSpan = document.createElement('span');
-        contentSpan.className = 'message-content';
-        
-        if (isMarkdown) {
-            contentSpan.innerHTML = renderMarkdown(text);
-            // Add copy buttons to code blocks
-            addCopyButtons(contentSpan);
-        } else {
-            contentSpan.textContent = text;
+    function addMessage(text, type, container, isMarkdown = false) {
+        console.log(`addMessage called:`, { 
+            type, 
+            textLength: text?.length,
+            textPreview: text ? String(text).substring(0, 50) + '...' : 'undefined',
+            isMarkdown,
+            containerId: container?.id
+        });
+
+        if (!container) {
+            console.error('Cannot add message: Container is null or undefined');
+            return null;
         }
         
-        messageDiv.appendChild(contentSpan);
-        container.appendChild(messageDiv);
-        
-        // Auto-scroll to the bottom of the container
-        container.scrollTop = container.scrollHeight;
-        
-        console.log(`Added ${type} message to ${container.id || 'unknown-container'}`);
-    } catch (error) {
-        console.error('Error adding message:', error);
-        // Fallback to simple text if there's an error with markdown rendering
-        messageDiv.textContent = text;
-        container.appendChild(messageDiv);
-    }
-}
-
-function renderMarkdown(text) {
-        if (typeof marked === 'undefined') return text;
-        const html = marked.parse(text);
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-        if (typeof hljs !== 'undefined') {
-            tempDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        // Ensure text is a non-empty string
+        if (text === null || text === undefined) {
+            console.warn('Received null/undefined text, converting to empty string');
+            text = '';
+        } else if (typeof text !== 'string') {
+            console.warn('Received non-string text, converting to string:', text);
+            text = String(text);
         }
-        return tempDiv.innerHTML;
+        
+        // Create message container
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}-message`;
+        
+        try {
+            // Add timestamp
+            const timestamp = new Date().toLocaleTimeString();
+            const timestampSpan = document.createElement('span');
+            timestampSpan.className = 'message-timestamp';
+            timestampSpan.textContent = `[${timestamp}] `;
+            messageDiv.appendChild(timestampSpan);
+            
+            // Create content container
+            const contentSpan = document.createElement('div');
+            contentSpan.className = 'message-content';
+            
+            // Check if this looks like a code block or markdown
+            const isLikelyCode = text.trim().startsWith('```') || 
+                               (text.includes('\n') && text.trim().length > 0) || 
+                               (text.includes('  ') && text.trim().length > 0) ||
+                               (text.includes('{') && text.includes('}')) ||
+                               (text.includes('(') && text.includes(')') && text.includes(';'));
+            
+            // Always try to render as markdown if it's from AI or explicitly requested
+            if (isMarkdown || type === 'ai' || isLikelyCode) {
+                console.log('Rendering as markdown');
+                const rendered = renderMarkdown(text);
+                console.log('Rendered content:', { 
+                    originalLength: text.length, 
+                    renderedLength: rendered.length,
+                    preview: rendered.substring(0, 100) + '...'
+                });
+                contentSpan.innerHTML = rendered || '[Empty response]';
+                addCopyButtons(contentSpan);
+            } else {
+                console.log('Rendering as plain text');
+                // For plain text, preserve line breaks and basic formatting
+                const formattedText = text
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\n/g, '<br>');
+                contentSpan.innerHTML = formattedText || '[Empty message]';
+            }
+            
+            // Add to DOM
+            messageDiv.appendChild(contentSpan);
+            container.appendChild(messageDiv);
+            
+            // Scroll to bottom and ensure message is visible
+            container.scrollTop = container.scrollHeight;
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            console.log(`Successfully added ${type} message (${text.length} chars) to ${container.id || 'unknown-container'}`);
+            
+        } catch (error) {
+            console.error('Error adding message:', error);
+            // Fallback to simple text display
+            messageDiv.textContent = `[Error displaying message: ${error.message}]\n${text || '[No message content]'}`;
+            container.appendChild(messageDiv);
+        }
+        
+        return messageDiv;
+    }
+
+    function renderMarkdown(text) {
+        if (!text) return '';
+        
+        // First, check if the text looks like a code block without markdown
+        if (text.trim().startsWith('```') && text.trim().endsWith('```')) {
+            const code = text.trim().slice(3, -3).trim();
+            const language = code.split('\n')[0].trim() || 'plaintext';
+            const codeContent = code.split('\n').slice(1).join('\n');
+            
+            if (typeof hljs !== 'undefined') {
+                const highlighted = hljs.highlight(codeContent, { language }).value;
+                return `<pre><code class="hljs ${language}">${highlighted}</code></pre>`;
+            } else {
+                return `<pre><code>${codeContent}</code></pre>`;
+            }
+        }
+        
+        // Process as markdown if marked is available
+        if (typeof marked === 'undefined') {
+            return text.replace(/\n/g, '<br>');
+        }
+        
+        try {
+            // Configure marked options
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    if (typeof hljs !== 'undefined' && lang) {
+                        try {
+                            return hljs.highlight(code, { language: lang }).value;
+                        } catch (e) {
+                            return hljs.highlightAuto(code).value;
+                        }
+                    }
+                    return code;
+                },
+                breaks: true,
+                gfm: true
+            });
+            
+            // Parse markdown
+            const html = marked.parse(text);
+            
+            // Highlight any code blocks that weren't handled by marked
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            if (typeof hljs !== 'undefined') {
+                tempDiv.querySelectorAll('pre code').forEach(block => {
+                    if (!block.className) {
+                        hljs.highlightElement(block);
+                    }
+                });
+            }
+            
+            return tempDiv.innerHTML;
+            
+        } catch (error) {
+            console.error('Error rendering markdown:', error);
+            return text.replace(/\n/g, '<br>');
+        }
     }
 
     function addCopyButtons(container) {
@@ -2498,6 +2198,383 @@ function renderMarkdown(text) {
         document.removeEventListener('mousemove', handleDrag);
         document.removeEventListener('mouseup', stopDrag);
     }
+});
+</file>
+
+<file path="src/main.js">
+const { app, BrowserWindow, globalShortcut, ipcMain, dialog, systemPreferences } = require('electron');
+const path = require('path');
+const Store = require('electron-store');
+const geminiService = require('./services/gemini');
+// FIX: We now require the INSTANCE of the service directly.
+const meetService = require('./services/meets'); 
+
+// Initialize @electron/remote
+require('@electron/remote/main').initialize();
+
+// Initialize store
+const store = new Store({
+  defaults: {
+    windowBounds: { width: 400, height: 300, x: 0, y: 0 },
+    notes: '',
+    isAlwaysOnTop: true,
+    opacity: 0.9
+  }
+});
+
+let mainWindow;
+// We no longer need this line because meetService is already an instance.
+// const meetService = new MeetService();
+
+function createWindow() {
+  const { width, height, x, y } = store.get('windowBounds');
+  
+  // Create the browser window.
+  mainWindow = new BrowserWindow({
+    width: width,
+    height: height,
+    x: x,
+    y: y,
+    frame: true,
+    titleBarStyle: 'hiddenInset', // For macOS traffic lights
+    backgroundColor: '#00000000', // Transparent background
+    transparent: true,
+    hasShadow: false,
+    alwaysOnTop: store.get('isAlwaysOnTop'),
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      backgroundThrottling: false,
+      webSecurity: false,
+      enableRemoteModule: true,
+      nodeIntegrationInWorker: true
+    },
+    skipTaskbar: true
+  });
+
+  // Enable @electron/remote for this window
+  require('@electron/remote/main').enable(mainWindow.webContents);
+
+  // Load the index.html file
+  mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
+
+  // Enable content protection to hide from screen capture
+  mainWindow.setContentProtection(true); // Temporarily disabled for debugging
+  console.log('Content protection DISABLED for debugging.'); 
+
+  // Open the DevTools
+  // mainWindow.webContents.openDevTools({ mode: 'detach' });
+
+  // Set up window event listeners
+  mainWindow
+    .on('maximize', () => mainWindow.webContents.send('window-maximized'))
+    .on('unmaximize', () => mainWindow.webContents.send('window-unmaximized'))
+    .on('resize', saveWindowBounds)
+    .on('move', saveWindowBounds)
+    .on('moved', saveWindowBounds)
+    .on('resized', saveWindowBounds)
+    .on('close', (e) => {
+      if (!isQuitting) {
+        e.preventDefault();
+        mainWindow.hide();
+        return false;
+      }
+      return true;
+    })
+    .on('show', () => mainWindow.setContentProtection(true))
+    .on('focus', () => {
+      console.log('Main: Window focused');
+      mainWindow.webContents.send('window-focused');
+    });
+
+  // Register global shortcut (Cmd+/ or Ctrl+/)
+  const ret = globalShortcut.register('CommandOrControl+/', () => {
+    console.log('Global shortcut triggered');
+    if (mainWindow.isVisible()) {
+      mainWindow.hide();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  if (!ret) {
+    console.log('Global shortcut registration failed');
+  }
+
+  // Attempt to initialize MeetService on startup with a stored key
+  const assemblyAiApiKey = store.get('assemblyAiApiKey');
+  if (assemblyAiApiKey) {
+    console.log('Main: Initializing MeetService with stored API key.');
+    meetService.init(assemblyAiApiKey);
+  }
+
+  // Push initial state to renderer once it's loaded
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Main: Renderer finished loading. Pushing initial state.');
+    mainWindow.webContents.send('load-notes', store.get('notes'));
+    mainWindow.webContents.send('update-opacity', store.get('opacity'));
+    mainWindow.webContents.send('update-always-on-top-status', store.get('isAlwaysOnTop'));
+  });
+}
+
+function saveWindowBounds() {
+  if (mainWindow) {
+    const bounds = mainWindow.getBounds();
+    store.set('windowBounds', bounds);
+  }
+}
+
+// Forward MeetService events to the renderer process with enhanced logging
+meetService.on('status', (status) => {
+  console.log(`[${new Date().toISOString()}] MeetService status:`, status);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('meet-status-update', status);
+  }
+});
+
+meetService.on('transcript', (transcript) => {
+  console.log(`[${new Date().toISOString()}] MeetService transcript:`, 
+    `${transcript.text.substring(0, 50)}${transcript.text.length > 50 ? '...' : ''}`);
+  
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('meet-transcript-update', {
+      ...transcript,
+      timestamp: transcript.timestamp || new Date().toISOString()
+    });
+  }
+});
+
+meetService.on('session_ended', (sessionData) => {
+  console.log(`[${new Date().toISOString()}] MeetService session ended:`, sessionData.sessionId);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('meet-session-ended', sessionData);
+  }
+});
+
+meetService.on('error', (error) => {
+  const errorMessage = error.message || String(error);
+  console.error(`[${new Date().toISOString()}] MeetService error:`, errorMessage);
+  
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('meet-error', {
+      message: errorMessage,
+      timestamp: new Date().toISOString(),
+      stack: error.stack
+    });
+  }
+});
+
+app.whenReady().then(async () => {
+  if (process.platform === 'darwin') { // macOS specific
+    const microphoneAccess = await systemPreferences.askForMediaAccess('microphone');
+    if (!microphoneAccess) {
+      dialog.showErrorBox('Microphone Access Denied', 'You must allow microphone access in System Preferences to use the voice features.');
+    }
+  }
+  createWindow();
+
+  app.on('activate', function () {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on('window-all-closed', function () {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+ipcMain.on('save-notes', (event, notes) => {
+  store.set('notes', notes);
+});
+
+ipcMain.on('update-opacity', (event, opacity) => {
+  if (mainWindow) {
+    mainWindow.setOpacity(opacity);
+    store.set('opacity', opacity);
+  }
+});
+
+ipcMain.on('toggle-always-on-top', async (event) => {
+  const isAlwaysOnTop = !store.get('isAlwaysOnTop');
+  store.set('isAlwaysOnTop', isAlwaysOnTop);
+  mainWindow.setAlwaysOnTop(isAlwaysOnTop, 'floating');
+  console.log('Main: Toggled always on top to:', isAlwaysOnTop);
+  mainWindow.webContents.send('update-always-on-top-status', isAlwaysOnTop);
+});
+
+ipcMain.handle('get-opacity', () => {
+  return store.get('opacity', 0.9);
+});
+
+ipcMain.handle('get-always-on-top', () => {
+  return store.get('isAlwaysOnTop', true);
+});
+
+ipcMain.on('window-move', (event, { x, y }) => {
+  if (mainWindow && !mainWindow.isMaximized()) {
+    mainWindow.setPosition(x, y);
+  }
+});
+
+
+
+ipcMain.on('window-resize', (event, { width, height }) => {
+  if (mainWindow) {
+    const [currentWidth, currentHeight] = mainWindow.getSize();
+    if (Math.abs(currentWidth - width) > 10 || Math.abs(currentHeight - height) > 10) {
+      mainWindow.setSize(Math.round(width), Math.round(height));
+    }
+  }
+});
+
+ipcMain.handle('set-api-key', (event, apiKey) => {
+  try {
+    store.set('geminiApiKey', apiKey); 
+    console.log('Main: Gemini API key saved.');
+    return geminiService.setApiKey(apiKey);
+  } catch (error) {
+    console.error('Error setting Gemini API key:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('get-gemini-api-key', () => {
+  return store.get('geminiApiKey');
+});
+
+ipcMain.handle('send-message-to-gemini', async (event, message) => {
+  try {
+    return await geminiService.sendMessage(message);
+  } catch (error) {
+    console.error('Error sending message to Gemini:', error.message);
+    throw new Error(error.message || 'An unknown error occurred.');
+  }
+});
+
+// Handle Gemini prompts - now only using meet chat for all requests
+ipcMain.on('gemini-prompt', async (event, { view, prompt, messageId }) => {
+  const logPrefix = `[${new Date().toISOString()}] [Message ${messageId}]`;
+  console.log(`${logPrefix} Gemini prompt received for ${view} view`);
+  
+  try {
+    // Input validation
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      throw new Error('Empty or invalid prompt');
+    }
+    
+    // Log the outgoing message (truncated for logs)
+    const logMessage = prompt.length > 100 ? `${prompt.substring(0, 100)}...` : prompt;
+    console.log(`${logPrefix} Sending to Gemini: "${logMessage}"`);
+    
+    // Track response time
+    const startTime = Date.now();
+    
+    // Always use the meet chat instance
+    const response = await geminiService.sendMessage(prompt);
+    
+    const responseTime = Date.now() - startTime;
+    console.log(`${logPrefix} Gemini response received in ${responseTime}ms`);
+    
+    // Send the response back to the renderer
+    const responseData = { 
+      view, 
+      response,
+      messageId,
+      timestamp: new Date().toISOString(),
+      responseTime
+    };
+    
+    // Send both a broadcast and a targeted response
+    event.sender.send('gemini-response', responseData);
+    event.sender.send(`gemini-response-${messageId}`, responseData);
+    
+  } catch (error) {
+    console.error(`${logPrefix} Error processing Gemini prompt:`, error);
+    
+    // Prepare error response
+    const errorData = { 
+      view, 
+      response: `Error: ${error.message || 'Failed to process your request. Please try again.'}`,
+      messageId,
+      timestamp: new Date().toISOString(),
+      error: true
+    };
+    
+    // Send both a broadcast and a targeted error response
+    event.sender.send('gemini-response', errorData);
+    event.sender.send(`gemini-response-${messageId}`, errorData);
+  }
+});
+ipcMain.handle('set-gemini-api-key', async (event, apiKey) => {
+  try {
+      console.log('Setting Gemini API key...');
+      await geminiService.setApiKey(apiKey);
+      console.log('Gemini API key set successfully');
+      return true;
+  } catch (error) {
+      console.error('Error setting Gemini API key:', error);
+      return false;
+  }
+});
+
+ipcMain.handle('clear-gemini-conversation', () => {
+  geminiService.clearConversation();
+  return true;
+});
+
+ipcMain.handle('get-gemini-status', () => {
+  return geminiService.isInitialized;
+});
+
+ipcMain.handle('set-assemblyai-api-key', (event, apiKey) => {
+  try {
+    store.set('assemblyAiApiKey', apiKey);
+    console.log('Main: AssemblyAI API key saved.');
+    return meetService.init(apiKey); // Initialize service with the new key
+  } catch (error) {
+    console.error('Error setting AssemblyAI API key:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('get-assemblyai-api-key', () => {
+  return store.get('assemblyAiApiKey');
+});
+
+ipcMain.on('start-meet', async () => {
+  try {
+    console.log(`[${new Date().toISOString()}] Starting meet service...`);
+    await meetService.start();
+    console.log(`[${new Date().toISOString()}] Meet service started successfully`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error starting meet service:`, error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('meet-error', {
+        message: `Failed to start meet: ${error.message}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+});
+
+ipcMain.on('stop-meet', async () => {
+  try {
+    console.log(`[${new Date().toISOString()}] Stopping meet service...`);
+    await meetService.stop();
+    console.log(`[${new Date().toISOString()}] Meet service stopped successfully`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error stopping meet service:`, error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('meet-error', {
+        message: `Error stopping meet: ${error.message}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 </file>
 

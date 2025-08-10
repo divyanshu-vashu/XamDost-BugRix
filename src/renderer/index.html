@@ -10,13 +10,16 @@
 </head>
 <body>
     <div id="app">
+        <!-- Window Controls (handled by Electron) -->
+        <div class="window-controls-spacer"></div>
+        
+        <!-- Custom Title Bar -->
         <div class="title-bar">
             <div class="title-bar-left">
-                <div class="app-title">XamDost</div>
+                <div class="app-title">XamDost - Meets</div>
                 <div class="window-actions">
-                    <button id="meets-btn" class="action-btn" title="Meets (⌘1)">🎙️</button>
-                    <button id="chat-btn" class="action-btn" title="Chat (⌘2)">💬</button>
-                    <button id="settings-btn" class="action-btn" title="Settings (⌘,)" class="active">⚙️</button>
+                    <button id="meets-btn" class="action-btn active" title="Meets (⌘1)">🎙️ Meets</button>
+                    <button id="settings-btn" class="action-btn" title="Settings (⌘,)">⚙️ Settings</button>
                 </div>
             </div>
         </div>
@@ -47,21 +50,8 @@
                 </div>
             </div>
 
-            <!-- Chat View -->
-            <div id="chat-view" class="view">
-                <div id="chat-messages" class="chat-messages">
-                    <div class="message ai-message">
-                        <div class="message-content">Hello! I'm your AI assistant. How can I help you today?</div>
-                    </div>
-                </div>
-                <div class="chat-input-container">
-                    <textarea id="chat-input" placeholder="Type a message..." rows="1"></textarea>
-                    <button id="send-message">Send</button>
-                </div>
-            </div>
-
             <!-- Meets View -->
-            <div id="meets-view" class="view">
+            <div id="meets-view" class="view" style="display: flex; flex-direction: column;">
                 <div class="meet-header">
                     <div class="meet-controls">
                         <button id="meet-start-button" class="meet-toggle">
