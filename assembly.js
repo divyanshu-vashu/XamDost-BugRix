@@ -2,11 +2,16 @@
 const { Readable } = require('stream')
 const {AssemblyAI} = require('assemblyai')
 const recorder = require('node-record-lpcm16')
+require("dotenv").config();
+
 
 const run = async () => {
   const client = new AssemblyAI({
-    apiKey: "f29f663674af45f19854458fc51cca2c",
+    apiKey: process.env.ASSEMBLYAI_API_KEY,
   });
+};
+
+
 
   const transcriber = client.streaming.transcriber({
     sampleRate: 16_000,
